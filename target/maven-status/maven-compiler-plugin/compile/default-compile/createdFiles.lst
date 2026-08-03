@@ -1,0 +1,12 @@
+com\coride\web\service\AdmissionValidationService.class
+com\coride\web\model\User.class
+com\coride\web\repository\RideRepository.class
+com\coride\web\controller\AuthApiController.class
+com\coride\web\controller\RideApiController.class
+com\coride\web\CoRideApplication.class
+com\coride\web\model\RideRequest.class
+com\coride\web\repository\UserRepository.class
+com\coride\web\model\Ride.class
+com\coride\web\repository\RideRequestRepository.class
+com\coride\web\service\AdmissionValidationService$ValidationResult.class
+com\coride\web\controller\RequestApiController.class
