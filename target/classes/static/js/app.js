@@ -257,8 +257,11 @@ function openJoinRideModal(rideId) {
     passengersListHTML = '<span style="color:var(--text-muted);font-style:italic;font-size:0.85rem;">No co-passengers joined yet.</span>';
   }
 
-  const phone = ride.contactPhone || currentUser?.phone || '+91 9876543210';
-  const whatsappUrl = `https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hi ${ride.creatorName}, I joined your coRide offer from ${ride.fromLocation} to ${ride.destination}!`)}`;
+  const phone = ride.contactPhone?.trim() || '';
+  const hasPhone = phone.length > 0;
+  const rawDigits = phone.replace(/[^0-9]/g, '');
+  const whatsappUrl = hasPhone ? `https://wa.me/${rawDigits}?text=${encodeURIComponent(`Hi ${ride.creatorName}, I joined your coRide offer from ${ride.fromLocation} to ${ride.destination}!`)}` : '#';
+  const telUrl = hasPhone ? `tel:${phone}` : '#';
 
   modalBody.innerHTML = `
     <div style="background:var(--bg-card2);padding:1rem;border-radius:12px;border:1px solid var(--border-card);margin-bottom:1rem;">
@@ -304,7 +307,7 @@ function openJoinRideModal(rideId) {
       </div>
       <div style="font-size:0.85rem;color:var(--text-main);display:flex;flex-direction:column;gap:0.3rem;">
         <div><strong>Driver:</strong> ${escHtml(ride.creatorName)} (${escHtml(ride.creatorRole || 'Faculty/Student')})</div>
-        <div><strong>Contact Phone / WhatsApp:</strong> ${escHtml(phone)}</div>
+        <div><strong>Contact Phone / WhatsApp:</strong> ${hasPhone ? `<strong style="color:var(--accent-emerald);">${escHtml(phone)}</strong>` : '<span style="color:var(--accent-amber);font-style:italic;">Not provided by driver</span>'}</div>
       </div>
     </div>
 
@@ -319,12 +322,14 @@ function openJoinRideModal(rideId) {
           <i class="fa-solid fa-circle-check"></i> You have joined this ride!
         </div>
       ` : ''}
-      <a href="${whatsappUrl}" target="_blank" class="btn btn-secondary" style="justify-content:center;text-decoration:none;">
-        <i class="fa-brands fa-whatsapp" style="color:#25D366;"></i> WhatsApp Driver
-      </a>
-      <a href="tel:${phone}" class="btn btn-secondary" style="justify-content:center;text-decoration:none;">
-        <i class="fa-solid fa-phone" style="color:var(--accent-primary);"></i> Call
-      </a>
+      ${hasPhone ? `
+        <a href="${whatsappUrl}" target="_blank" class="btn btn-secondary" style="justify-content:center;text-decoration:none;">
+          <i class="fa-brands fa-whatsapp" style="color:#25D366;"></i> WhatsApp Driver
+        </a>
+        <a href="${telUrl}" class="btn btn-secondary" style="justify-content:center;text-decoration:none;">
+          <i class="fa-solid fa-phone" style="color:var(--accent-primary);"></i> Call
+        </a>
+      ` : ''}
     </div>
   `;
 
@@ -492,6 +497,8 @@ document.getElementById('offer-ride-form')?.addEventListener('submit', async e =
   const vehiclePlate = document.getElementById('offer-vehicle-plate')?.value?.trim();
   const vehicle      = `${vehicleType} – ${vehicleModel} (${vehiclePlate})`;
 
+  const contactPhone = document.getElementById('offer-phone')?.value?.trim() || currentUser?.phone || '';
+
   const body = {
     creatorName:  currentUser.name,
     creatorRole:  currentUser.role,
@@ -501,6 +508,7 @@ document.getElementById('offer-ride-form')?.addEventListener('submit', async e =
     vehicle,
     seats:        parseInt(document.getElementById('offer-seats')?.value || 3),
     notes:        document.getElementById('offer-notes')?.value?.trim(),
+    contactPhone
   };
 
   const { ok, data } = await apiRequest(API.rides, 'POST', body);
