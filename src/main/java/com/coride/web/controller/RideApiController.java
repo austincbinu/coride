@@ -40,6 +40,7 @@ public class RideApiController {
         int seats = Integer.parseInt(body.getOrDefault("seats", "1").toString());
         String notes = (String) body.getOrDefault("notes", "");
         String contactPhone = (String) body.getOrDefault("contactPhone", "");
+        double fuelCost = Double.parseDouble(body.getOrDefault("fuelCost", "0").toString());
 
         if (creatorName.isEmpty() || fromLocation.isEmpty() || destination.isEmpty() || dateTime.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Missing required fields."));
@@ -49,6 +50,7 @@ public class RideApiController {
         if (!contactPhone.isEmpty()) {
             ride.setContactPhone(contactPhone);
         }
+        ride.setFuelCost(fuelCost);
         rideRepository.save(ride);
         return ResponseEntity.ok(Map.of("success", true, "ride", ride));
     }

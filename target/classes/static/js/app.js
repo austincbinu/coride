@@ -233,6 +233,7 @@ function rideCardHTML(ride, showDelete = false) {
     <div class="ride-meta">
       ${ride.dateTime ? `<span class="meta-chip time"><i class="fa-solid fa-clock"></i>${escHtml(ride.dateTime)}</span>` : ''}
       <span class="meta-chip seats"><i class="fa-solid fa-users"></i>${ride.seats} seat${ride.seats !== 1 ? 's' : ''} remaining</span>
+      ${ride.fuelCost > 0 ? `<span class="meta-chip" style="background:rgba(245,158,11,0.15);color:var(--accent-amber);border:1px solid rgba(245,158,11,0.3);"><i class="fa-solid fa-indian-rupee-sign"></i>${Math.round(ride.fuelCost / (ride.seats + 1))}/person</span>` : ''}
     </div>
     ${ride.notes ? `<div class="ride-notes"><i class="fa-solid fa-note-sticky"></i> ${escHtml(ride.notes)}</div>` : ''}
     <div class="ride-card-actions">
@@ -289,6 +290,7 @@ function openJoinRideModal(rideId) {
         <span><i class="fa-solid fa-car" style="color:var(--accent-emerald);"></i> ${escHtml(ride.vehicle || 'Car')}</span>
         <span>•</span>
         <span><i class="fa-solid fa-chair" style="color:var(--accent-amber);"></i> ${ride.seats} seat${ride.seats !== 1 ? 's' : ''} left</span>
+        ${ride.fuelCost > 0 ? `<span>•</span><span style="color:var(--accent-amber);font-weight:700;"><i class="fa-solid fa-indian-rupee-sign"></i> ${Math.round(ride.fuelCost / (ride.seats + 1))}/person (Total: ₹${ride.fuelCost})</span>` : ''}
       </div>
     </div>
 
@@ -525,6 +527,9 @@ document.getElementById('offer-ride-form')?.addEventListener('submit', async e =
 
   const contactPhone = document.getElementById('offer-phone')?.value?.trim() || currentUser?.phone || '';
 
+  const fuelCost = parseFloat(document.getElementById('offer-fuel-cost')?.value || 0);
+  const totalSeats = parseInt(document.getElementById('offer-seats')?.value || 3);
+
   const body = {
     creatorName:  currentUser.name,
     creatorRole:  currentUser.role,
@@ -532,9 +537,10 @@ document.getElementById('offer-ride-form')?.addEventListener('submit', async e =
     destination:  document.getElementById('offer-destination')?.value?.trim(),
     dateTime:     document.getElementById('offer-time')?.value,
     vehicle,
-    seats:        parseInt(document.getElementById('offer-seats')?.value || 3),
+    seats:        totalSeats,
     notes:        document.getElementById('offer-notes')?.value?.trim(),
-    contactPhone
+    contactPhone,
+    fuelCost
   };
 
   const { ok, data } = await apiRequest(API.rides, 'POST', body);

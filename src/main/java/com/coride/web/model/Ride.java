@@ -21,6 +21,7 @@ public class Ride {
     private String status; // ACTIVE, FULL, COMPLETED, CANCELLED
     private String passengers; // Comma separated list of passenger names
     private String contactPhone; // Mobile/WhatsApp contact number
+    private double fuelCost;    // Total fuel cost in ₹
 
     public Ride() {}
 
@@ -71,4 +72,7 @@ public class Ride {
 
     public String getContactPhone() { return contactPhone; }
     public void setContactPhone(String contactPhone) { this.contactPhone = contactPhone; }
+
+    public double getFuelCost() { return fuelCost; }
+    public void setFuelCost(double fuelCost) { this.fuelCost = fuelCost; }
 }
