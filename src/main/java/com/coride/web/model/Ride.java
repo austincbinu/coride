@@ -18,7 +18,9 @@ public class Ride {
     private String vehicle;
     private int seats;
     private String notes;
-    private String status; // ACTIVE, COMPLETED, CANCELLED
+    private String status; // ACTIVE, FULL, COMPLETED, CANCELLED
+    private String passengers; // Comma separated list of passenger names
+    private String contactPhone; // Mobile/WhatsApp contact number
 
     public Ride() {}
 
@@ -63,4 +65,10 @@ public class Ride {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public String getPassengers() { return passengers; }
+    public void setPassengers(String passengers) { this.passengers = passengers; }
+
+    public String getContactPhone() { return contactPhone; }
+    public void setContactPhone(String contactPhone) { this.contactPhone = contactPhone; }
 }

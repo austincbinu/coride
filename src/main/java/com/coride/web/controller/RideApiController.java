@@ -39,12 +39,16 @@ public class RideApiController {
         String vehicle = (String) body.getOrDefault("vehicle", "");
         int seats = Integer.parseInt(body.getOrDefault("seats", "1").toString());
         String notes = (String) body.getOrDefault("notes", "");
+        String contactPhone = (String) body.getOrDefault("contactPhone", "");
 
         if (creatorName.isEmpty() || fromLocation.isEmpty() || destination.isEmpty() || dateTime.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Missing required fields."));
         }
 
         Ride ride = new Ride(creatorName, creatorRole, fromLocation, destination, dateTime, vehicle, seats, notes);
+        if (!contactPhone.isEmpty()) {
+            ride.setContactPhone(contactPhone);
+        }
         rideRepository.save(ride);
         return ResponseEntity.ok(Map.of("success", true, "ride", ride));
     }
@@ -57,5 +61,38 @@ public class RideApiController {
         }
         rideRepository.deleteById(id);
         return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    @PostMapping("/{id}/join")
+    public ResponseEntity<?> joinRide(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        String passengerName = body.getOrDefault("passengerName", "Student Passenger").trim();
+        Optional<Ride> optionalRide = rideRepository.findById(id);
+        if (optionalRide.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Ride offer not found."));
+        }
+        Ride ride = optionalRide.get();
+        if (ride.getSeats() <= 0) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Sorry, no seats available on this ride."));
+        }
+
+        // Decrement seats
+        ride.setSeats(ride.getSeats() - 1);
+        if (ride.getSeats() == 0) {
+            ride.setStatus("FULL");
+        }
+
+        // Record passenger
+        String currentPassengers = ride.getPassengers() != null ? ride.getPassengers() : "";
+        if (!currentPassengers.isEmpty()) currentPassengers += ", ";
+        currentPassengers += passengerName;
+        ride.setPassengers(currentPassengers);
+
+        rideRepository.save(ride);
+
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Seat confirmed! You have joined " + ride.getCreatorName() + "'s ride.",
+            "ride", ride
+        ));
     }
 }
