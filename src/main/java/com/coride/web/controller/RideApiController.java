@@ -95,4 +95,30 @@ public class RideApiController {
             "ride", ride
         ));
     }
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<?> cancelRide(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        String passengerName = body.getOrDefault("passengerName", "").trim();
+        Optional<Ride> optionalRide = rideRepository.findById(id);
+        if (optionalRide.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Ride not found."));
+        }
+        Ride ride = optionalRide.get();
+        String passengers = ride.getPassengers();
+        if (passengers == null || !passengers.contains(passengerName)) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "You have not joined this ride."));
+        }
+        // Remove passenger from list
+        java.util.List<String> list = new java.util.ArrayList<>(java.util.Arrays.asList(passengers.split(",")));
+        list.removeIf(p -> p.trim().equalsIgnoreCase(passengerName));
+        String updated = String.join(",", list).trim();
+        ride.setPassengers(updated.isEmpty() ? null : updated);
+        // Increment seats
+        ride.setSeats(ride.getSeats() + 1);
+        // Update status if was FULL
+        if ("FULL".equals(ride.getStatus())) {
+            ride.setStatus("ACTIVE");
+        }
+        rideRepository.save(ride);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Ride cancelled successfully.", "ride", ride));
+    }
 }

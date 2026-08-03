@@ -321,6 +321,9 @@ function openJoinRideModal(rideId) {
         <div style="flex:1;text-align:center;padding:0.6rem;background:rgba(16,185,129,0.15);color:var(--accent-emerald);border-radius:8px;font-weight:600;">
           <i class="fa-solid fa-circle-check"></i> You have joined this ride!
         </div>
+        <button class="btn btn-danger shine-effect" style="flex:1;" id="cancel-join-btn">
+          <i class="fa-solid fa-xmark-circle"></i> Cancel Seat
+        </button>
       ` : ''}
       ${hasPhone ? `
         <a href="${whatsappUrl}" target="_blank" class="btn btn-secondary" style="justify-content:center;text-decoration:none;">
@@ -338,6 +341,29 @@ function openJoinRideModal(rideId) {
   const confirmBtn = document.getElementById('confirm-join-btn');
   if (confirmBtn) {
     confirmBtn.addEventListener('click', () => confirmJoinRide(ride.id));
+  }
+  const cancelBtn = document.getElementById('cancel-join-btn');
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => cancelRide(ride.id));
+  }
+}
+
+async function cancelRide(rideId) {
+  if (!currentUser) {
+    closeModal('modal-join-ride');
+    showToast('Please verify first.', 'warning');
+    openModal('modal-verify');
+    return;
+  }
+  const { ok, data, error } = await apiRequest(`${API.rides}/${rideId}/cancel`, 'POST', {
+    passengerName: currentUser.name
+  });
+  if (ok) {
+    showToast(data.message || 'Seat cancelled.', 'success');
+    closeModal('modal-join-ride');
+    loadRides();
+  } else {
+    showToast(error || 'Failed to cancel.', 'error');
   }
 }
 
