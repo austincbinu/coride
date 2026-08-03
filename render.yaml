@@ -1,13 +1,9 @@
 services:
   - type: web
     name: coride-web
-    env: java
-    buildCommand: ./mvnw clean package -DskipTests
-    startCommand: java -jar target/coride-java-web-1.0.0.jar
+    env: docker
     plan: free
     autoDeploy: true
     envVars:
       - key: PORT
-        value: 10000
-      - key: JAVA_VERSION
-        value: 17
+        value: 8080
