@@ -108,6 +108,7 @@ document.getElementById('open-post-need-btn')?.addEventListener('click', () => {
 function renderUserMenu() {
   const menu = document.getElementById('user-menu');
   const banner = document.getElementById('verify-banner');
+  const mobileArea = document.getElementById('mobile-user-area');
 
   if (!menu) return;
 
@@ -126,6 +127,19 @@ function renderUserMenu() {
         <i class="fa-solid fa-right-from-bracket"></i> Logout
       </button>`;
     document.getElementById('logout-btn')?.addEventListener('click', logout);
+
+    // Mobile top bar — show avatar + name
+    if (mobileArea) {
+      mobileArea.innerHTML = `
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <div class="user-avatar" style="width:30px;height:30px;font-size:0.75rem;">${initials}</div>
+          <span style="font-size:0.8rem;font-weight:700;color:var(--text-main);">${currentUser.name.split(' ')[0]}</span>
+        </div>
+        <button class="btn btn-danger" id="mobile-logout-btn" style="padding:0.35rem 0.75rem;font-size:0.75rem;">
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </button>`;
+      document.getElementById('mobile-logout-btn')?.addEventListener('click', logout);
+    }
   } else {
     banner.style.display = '';
     menu.innerHTML = `
@@ -133,6 +147,15 @@ function renderUserMenu() {
         <i class="fa-solid fa-shield-check"></i> Verify Identity
       </button>`;
     document.getElementById('hdr-verify-btn')?.addEventListener('click', () => openModal('manual-modal'));
+
+    // Mobile top bar — show verify button
+    if (mobileArea) {
+      mobileArea.innerHTML = `
+        <button class="btn btn-primary" id="mobile-verify-btn" style="padding:0.4rem 0.85rem;font-size:0.8rem;">
+          <i class="fa-solid fa-shield-check"></i> Verify
+        </button>`;
+      document.getElementById('mobile-verify-btn')?.addEventListener('click', () => openModal('manual-modal'));
+    }
   }
 }
 
