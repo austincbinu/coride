@@ -627,26 +627,59 @@ document.getElementById('verify-register')?.addEventListener('input', async e =>
   }
 });
 
+// Live phone validation — show real-time feedback
+document.getElementById('verify-phone')?.addEventListener('input', e => {
+  const val = e.target.value.replace(/[^0-9]/g, '');
+  const hint = document.getElementById('phone-hint');
+  const input = e.target;
+  // Strip non-digits as user types
+  if (e.target.value !== val) e.target.value = val;
+  if (val.length === 10) {
+    input.style.borderColor = 'var(--accent-emerald)';
+    input.style.boxShadow = '0 0 0 2px rgba(16,185,129,0.25)';
+    if (hint) { hint.textContent = '✅ Valid 10-digit number'; hint.style.color = 'var(--accent-emerald)'; }
+  } else if (val.length > 0) {
+    input.style.borderColor = 'var(--accent-rose)';
+    input.style.boxShadow = '0 0 0 2px rgba(244,63,94,0.2)';
+    if (hint) { hint.textContent = `❌ ${val.length}/10 digits entered`; hint.style.color = 'var(--accent-rose)'; }
+  } else {
+    input.style.borderColor = '';
+    input.style.boxShadow = '';
+    if (hint) { hint.textContent = 'Must be exactly 10 digits (no spaces or +91)'; hint.style.color = 'var(--text-muted)'; }
+  }
+});
+
 document.getElementById('manual-verify-form')?.addEventListener('submit', async e => {
   e.preventDefault();
   const name     = document.getElementById('verify-name')?.value?.trim();
   const reg      = document.getElementById('verify-register')?.value?.trim();
+  const phone    = document.getElementById('verify-phone')?.value?.trim();
   const role     = document.querySelector('input[name="userRole"]:checked')?.value || 'Student';
   const errEl    = document.getElementById('manual-error');
   const submitBtn = document.getElementById('manual-submit-btn');
 
   if (!name) { errEl.textContent = 'Please enter your full name.'; errEl.style.display = 'block'; return; }
 
+  // Phone validation — must be exactly 10 digits
+  const phoneDigits = phone.replace(/[^0-9]/g, '');
+  if (!phone || phoneDigits.length !== 10) {
+    errEl.textContent = '⚠️ Please enter a valid 10-digit mobile number.';
+    errEl.style.display = 'block';
+    document.getElementById('verify-phone')?.focus();
+    return;
+  }
+
   submitBtn.innerHTML = '<div class="spinner"></div> Verifying…';
   submitBtn.disabled = true;
 
-  const { ok, data } = await apiRequest(API.verify, 'POST', { name, admissionNo: reg, role });
+  const { ok, data } = await apiRequest(API.verify, 'POST', { name, admissionNo: reg, role, phone: phoneDigits });
 
   submitBtn.innerHTML = '<i class="fa-solid fa-shield-check"></i> Complete Verification &amp; Enter coRide';
   submitBtn.disabled = false;
 
   if (ok && data.success) {
     currentUser = data.user;
+    currentUser.phone = phoneDigits; // store phone in session
     sessionStorage.setItem('corideUser', JSON.stringify(currentUser));
     closeModal('manual-modal');
     renderUserMenu();

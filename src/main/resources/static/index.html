@@ -948,8 +948,9 @@
           <input type="text" id="verify-dept" placeholder="Auto-filled from register number" readonly style="color:var(--accent-emerald);font-weight:700;">
         </div>
         <div class="form-group" style="margin-bottom:1rem;">
-          <label for="verify-phone">Mobile Phone Number</label>
-          <input type="tel" id="verify-phone" placeholder="e.g. +91 9876543210" required>
+          <label for="verify-phone">Mobile Phone Number <small style="color:var(--accent-rose);">*</small></label>
+          <input type="tel" id="verify-phone" placeholder="Enter 10-digit number e.g. 9876543210" maxlength="10" pattern="[0-9]{10}" inputmode="numeric" required>
+          <small id="phone-hint" style="color:var(--text-muted);">Must be exactly 10 digits (no spaces or +91)</small>
         </div>
         <button type="submit" class="btn btn-primary btn-block shine-effect" id="manual-submit-btn">
           <i class="fa-solid fa-shield-check"></i> Complete Verification &amp; Enter coRide
