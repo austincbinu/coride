@@ -641,20 +641,26 @@
 
     /* ── Mobile (480px and below) ─────────────────────────── */
     @media (max-width: 480px) {
-      /* Nav — fixed bottom tab bar on phones */
+      /* Nav — elegant fixed bottom tab bar */
       .navbar {
         position: fixed; top: unset; bottom: 0;
         border-bottom: none;
-        border-top: 1px solid var(--border-subtle);
+        border-top: 1px solid rgba(99,102,241,0.15);
         padding: 0;
         z-index: 200;
+        background: rgba(10,14,26,0.97);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        box-shadow: 0 -4px 24px rgba(0,0,0,0.4);
+        /* Safe area for notched phones */
+        padding-bottom: env(safe-area-inset-bottom, 0px);
       }
       .nav-container {
         height: auto;
         flex-direction: row;
         justify-content: space-around;
         align-items: stretch;
-        padding: 0.4rem 0.25rem;
+        padding: 0.6rem 0.5rem 0.5rem;
         gap: 0;
       }
       .brand { display: none; }
@@ -662,23 +668,64 @@
       .nav-links {
         display: flex; flex: 1;
         justify-content: space-around;
+        align-items: stretch;
         gap: 0;
       }
       .nav-btn {
-        flex-direction: column; gap: 0.2rem;
-        padding: 0.4rem 0.5rem;
-        font-size: 0.62rem; font-weight: 700;
-        border-radius: 10px;
-        min-width: 54px; align-items: center;
+        flex-direction: column;
+        gap: 0.3rem;
+        padding: 0.55rem 0.75rem 0.5rem;
+        font-size: 0.68rem;
+        font-weight: 700;
+        border-radius: 14px;
+        min-width: 64px;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-sub);
+        transition: all 0.2s ease;
+        position: relative;
+        letter-spacing: 0.2px;
       }
-      .nav-btn i { font-size: 1.15rem; }
-      .nav-btn span { display: block !important; font-size: 0.6rem; }
-      .nav-btn.active { color: var(--accent-primary); background: rgba(99,102,241,0.12); }
+      .nav-btn i {
+        font-size: 1.4rem;
+        transition: all 0.2s ease;
+        line-height: 1;
+      }
+      .nav-btn span {
+        display: block !important;
+        font-size: 0.65rem;
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: 0.2px;
+      }
+      /* Active state — pill highlight */
+      .nav-btn.active {
+        color: var(--accent-primary);
+        background: rgba(99,102,241,0.14);
+      }
+      .nav-btn.active i {
+        transform: translateY(-1px);
+        filter: drop-shadow(0 0 6px rgba(99,102,241,0.6));
+      }
+      /* Offer Ride button — special emerald style */
+      .nav-btn.highlight-btn { color: var(--accent-emerald); }
+      .nav-btn.highlight-btn.active {
+        background: rgba(16,185,129,0.14);
+        color: var(--accent-emerald);
+      }
+      .nav-btn.highlight-btn i { color: inherit; }
+
+      /* Badge on requests */
+      .badge-count {
+        position: absolute; top: 6px; right: 10px;
+        font-size: 0.55rem; padding: 1px 5px;
+        min-width: 16px; text-align: center;
+      }
 
       /* Push page content above bottom nav */
       .main-content {
         padding: 1rem 0.85rem;
-        padding-bottom: 5.5rem; /* Space for bottom tab bar */
+        padding-bottom: 6.5rem;
       }
 
       /* Add top bar for brand + user on mobile */
