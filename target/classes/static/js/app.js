@@ -175,15 +175,29 @@ function logout() {
 ============================================================= */
 async function loadRides(searchQuery = '') {
   const container = document.getElementById('rides-container');
-  container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-muted);"><div class="spinner" style="border-top-color:var(--accent-primary);width:36px;height:36px;border-width:3px;margin:0 auto 1rem;"></div><p>Loading rides…</p></div>';
+  if (!container) return;
+  container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-muted);"><div class="spinner" style="border-top-color:var(--accent-primary);width:36px;height:36px;border-width:3px;margin:0 auto 1rem;"></div><p>Loading rides...</p></div>';
 
   let url = API.rides;
   if (searchQuery) url += `?search=${encodeURIComponent(searchQuery)}`;
 
-  if (!ok) { container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-triangle-exclamation"></i><h3>Failed to load rides</h3><p>Please refresh the page.</p></div>'; return; }
+  try {
+    const [ridesRes] = await Promise.all([
+      apiRequest(url),
+      loadAllJoinRequests()
+    ]);
 
-  allRides = data || [];
-  renderRides(allRides);
+    if (!ridesRes || !ridesRes.ok) {
+      container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-triangle-exclamation"></i><h3>Failed to load rides</h3><p>Please refresh the page.</p></div>';
+      return;
+    }
+
+    allRides = ridesRes.data || [];
+    renderRides(allRides);
+  } catch (err) {
+    console.error('Error loading rides:', err);
+    container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-triangle-exclamation"></i><h3>Failed to load rides</h3><p>Please check your connection and refresh.</p></div>';
+  }
 }
 
 // Helper: normalize name for safe comparison (case-insensitive and trimmed)
