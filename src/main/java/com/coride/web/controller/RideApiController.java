@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,6 +67,10 @@ public class RideApiController {
         return ResponseEntity.ok(Map.of("success", true));
     }
 
+    /**
+     * Passenger requests to join a ride.
+     * Puts the passenger into pendingRequests awaiting driver acceptance.
+     */
     @PostMapping("/{id}/join")
     public ResponseEntity<?> joinRide(@PathVariable Long id, @RequestBody Map<String, String> body) {
         String passengerName = body.getOrDefault("passengerName", "Student Passenger").trim();
@@ -73,30 +79,109 @@ public class RideApiController {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Ride offer not found."));
         }
         Ride ride = optionalRide.get();
+
         if (ride.getSeats() <= 0) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Sorry, no seats available on this ride."));
         }
 
-        // Decrement seats
-        ride.setSeats(ride.getSeats() - 1);
-        if (ride.getSeats() == 0) {
-            ride.setStatus("FULL");
+        // Check if already accepted or pending
+        List<String> accepted = getList(ride.getPassengers());
+        if (accepted.contains(passengerName)) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "You are already confirmed on this ride."));
         }
 
-        // Record passenger
-        String currentPassengers = ride.getPassengers() != null ? ride.getPassengers() : "";
-        if (!currentPassengers.isEmpty()) currentPassengers += ", ";
-        currentPassengers += passengerName;
-        ride.setPassengers(currentPassengers);
+        List<String> pending = getList(ride.getPendingRequests());
+        if (pending.contains(passengerName)) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "You have already requested to join this ride. Please wait for the driver to accept."));
+        }
 
+        pending.add(passengerName);
+        ride.setPendingRequests(String.join(",", pending));
         rideRepository.save(ride);
 
         return ResponseEntity.ok(Map.of(
             "success", true,
-            "message", "Seat confirmed! You have joined " + ride.getCreatorName() + "'s ride.",
+            "message", "Join request sent to " + ride.getCreatorName() + "! Awaiting driver confirmation.",
             "ride", ride
         ));
     }
+
+    /**
+     * Driver accepts a pending passenger join request.
+     */
+    @PostMapping("/{id}/accept-passenger")
+    public ResponseEntity<?> acceptPassenger(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        String passengerName = body.getOrDefault("passengerName", "").trim();
+        Optional<Ride> optionalRide = rideRepository.findById(id);
+        if (optionalRide.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Ride not found."));
+        }
+        Ride ride = optionalRide.get();
+
+        if (ride.getSeats() <= 0) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "No seats left to accept passenger."));
+        }
+
+        List<String> pending = getList(ride.getPendingRequests());
+        if (!pending.contains(passengerName)) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Passenger request not found in pending list."));
+        }
+
+        // Remove from pending
+        pending.removeIf(p -> p.equalsIgnoreCase(passengerName));
+        ride.setPendingRequests(pending.isEmpty() ? null : String.join(",", pending));
+
+        // Add to accepted passengers
+        List<String> accepted = getList(ride.getPassengers());
+        accepted.add(passengerName);
+        ride.setPassengers(String.join(",", accepted));
+
+        // Decrement seats
+        ride.setSeats(ride.getSeats() - 1);
+        if (ride.getSeats() <= 0) {
+            ride.setStatus("FULL");
+        }
+
+        rideRepository.save(ride);
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Accepted " + passengerName + " for your ride!",
+            "ride", ride
+        ));
+    }
+
+    /**
+     * Driver declines/rejects a pending passenger join request.
+     */
+    @PostMapping("/{id}/decline-passenger")
+    public ResponseEntity<?> declinePassenger(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        String passengerName = body.getOrDefault("passengerName", "").trim();
+        Optional<Ride> optionalRide = rideRepository.findById(id);
+        if (optionalRide.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Ride not found."));
+        }
+        Ride ride = optionalRide.get();
+
+        List<String> pending = getList(ride.getPendingRequests());
+        if (!pending.contains(passengerName)) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Passenger request not found in pending list."));
+        }
+
+        pending.removeIf(p -> p.equalsIgnoreCase(passengerName));
+        ride.setPendingRequests(pending.isEmpty() ? null : String.join(",", pending));
+
+        rideRepository.save(ride);
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Declined request from " + passengerName + ".",
+            "ride", ride
+        ));
+    }
+
+    /**
+     * Passenger cancels their seat (if confirmed) OR cancels their pending request.
+     * OR Driver removes a confirmed passenger.
+     */
     @PostMapping("/{id}/cancel")
     public ResponseEntity<?> cancelRide(@PathVariable Long id, @RequestBody Map<String, String> body) {
         String passengerName = body.getOrDefault("passengerName", "").trim();
@@ -105,22 +190,48 @@ public class RideApiController {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Ride not found."));
         }
         Ride ride = optionalRide.get();
-        String passengers = ride.getPassengers();
-        if (passengers == null || !passengers.contains(passengerName)) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "You have not joined this ride."));
+
+        List<String> pending = getList(ride.getPendingRequests());
+        List<String> accepted = getList(ride.getPassengers());
+
+        boolean wasPending = pending.removeIf(p -> p.equalsIgnoreCase(passengerName));
+        boolean wasAccepted = accepted.removeIf(p -> p.equalsIgnoreCase(passengerName));
+
+        if (!wasPending && !wasAccepted) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "You are not listed on this ride."));
         }
-        // Remove passenger from list
-        java.util.List<String> list = new java.util.ArrayList<>(java.util.Arrays.asList(passengers.split(",")));
-        list.removeIf(p -> p.trim().equalsIgnoreCase(passengerName));
-        String updated = String.join(",", list).trim();
-        ride.setPassengers(updated.isEmpty() ? null : updated);
-        // Increment seats
-        ride.setSeats(ride.getSeats() + 1);
-        // Update status if was FULL
-        if ("FULL".equals(ride.getStatus())) {
-            ride.setStatus("ACTIVE");
+
+        if (wasPending) {
+            ride.setPendingRequests(pending.isEmpty() ? null : String.join(",", pending));
         }
+
+        if (wasAccepted) {
+            ride.setPassengers(accepted.isEmpty() ? null : String.join(",", accepted));
+            ride.setSeats(ride.getSeats() + 1);
+            if ("FULL".equals(ride.getStatus())) {
+                ride.setStatus("ACTIVE");
+            }
+        }
+
         rideRepository.save(ride);
-        return ResponseEntity.ok(Map.of("success", true, "message", "Ride cancelled successfully.", "ride", ride));
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", wasPending ? "Join request cancelled." : "Seat cancelled successfully.",
+            "ride", ride
+        ));
+    }
+
+    private List<String> getList(String commaSeparated) {
+        if (commaSeparated == null || commaSeparated.trim().isEmpty()) {
+            return new ArrayList<>();
+        }
+        List<String> list = new ArrayList<>();
+        for (String item : commaSeparated.split(",")) {
+            String trimmed = item.trim();
+            if (!trimmed.isEmpty()) {
+                list.add(trimmed);
+            }
+        }
+        return list;
     }
 }

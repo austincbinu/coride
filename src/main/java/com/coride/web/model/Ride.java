@@ -19,7 +19,8 @@ public class Ride {
     private int seats;
     private String notes;
     private String status; // ACTIVE, FULL, COMPLETED, CANCELLED
-    private String passengers; // Comma separated list of passenger names
+    private String passengers; // Comma separated list of accepted passenger names
+    private String pendingRequests; // Comma separated list of passenger names requesting to join
     private String contactPhone; // Mobile/WhatsApp contact number
     private double fuelCost;    // Total fuel cost in ₹
 
@@ -69,6 +70,9 @@ public class Ride {
 
     public String getPassengers() { return passengers; }
     public void setPassengers(String passengers) { this.passengers = passengers; }
+
+    public String getPendingRequests() { return pendingRequests; }
+    public void setPendingRequests(String pendingRequests) { this.pendingRequests = pendingRequests; }
 
     public String getContactPhone() { return contactPhone; }
     public void setContactPhone(String contactPhone) { this.contactPhone = contactPhone; }
