@@ -44,13 +44,13 @@ public class JoinRequestController {
     // ── GET all pending requests for a specific driver ────────────────────────
     @GetMapping("/driver/{driverName}")
     public ResponseEntity<List<JoinRequest>> getPendingForDriver(@PathVariable String driverName) {
-        return ResponseEntity.ok(joinRequestRepository.findByDriverNameAndStatus(driverName, "PENDING"));
+        return ResponseEntity.ok(joinRequestRepository.findByDriverNameIgnoreCaseAndStatusIgnoreCase(driverName.trim(), "PENDING"));
     }
 
     // ── GET requests made by a specific passenger ─────────────────────────────
     @GetMapping("/passenger/{passengerName}")
     public ResponseEntity<List<JoinRequest>> getByPassenger(@PathVariable String passengerName) {
-        return ResponseEntity.ok(joinRequestRepository.findByPassengerName(passengerName));
+        return ResponseEntity.ok(joinRequestRepository.findByPassengerNameIgnoreCase(passengerName.trim()));
     }
 
     // ── POST: passenger sends a join request ──────────────────────────────────
@@ -75,7 +75,7 @@ public class JoinRequestController {
         }
 
         // Check if already requested
-        Optional<JoinRequest> existing = joinRequestRepository.findByRideIdAndPassengerName(rideId, passengerName);
+        Optional<JoinRequest> existing = joinRequestRepository.findByRideIdAndPassengerNameIgnoreCase(rideId, passengerName.trim());
         if (existing.isPresent()) {
             String existingStatus = existing.get().getStatus();
             if ("PENDING".equals(existingStatus)) {

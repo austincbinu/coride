@@ -374,12 +374,23 @@ async function openJoinRideModal(rideId) {
   const ride = allRides.find(r => r.id == rideId);
   if (!ride) return;
 
+  // Fetch real-time join requests for this specific ride directly from server
+  const rideRequestsRes = await apiRequest(`${API.joinRequests}/ride/${ride.id}`);
+  const rideJRs = rideRequestsRes.ok ? (rideRequestsRes.data || []) : [];
+
+  // Update allJoinRequests cache
+  rideJRs.forEach(jr => {
+    const idx = allJoinRequests.findIndex(x => x.id === jr.id);
+    if (idx >= 0) allJoinRequests[idx] = jr;
+    else allJoinRequests.push(jr);
+  });
+
   const modalBody = document.getElementById('join-ride-modal-body');
   const isMine = currentUser && sameName(ride.creatorName, currentUser.name);
 
   // My join request for this ride
-  const myJR = currentUser ? allJoinRequests.find(
-    jr => jr.rideId == ride.id && sameName(jr.passengerName, currentUser.name)
+  const myJR = currentUser ? rideJRs.find(
+    jr => sameName(jr.passengerName, currentUser.name)
   ) : null;
   const isAccepted = myJR?.status === 'ACCEPTED';
   const isPending  = myJR?.status === 'PENDING';
@@ -394,7 +405,7 @@ async function openJoinRideModal(rideId) {
 
   // Pending join requests for this ride (driver sees these)
   const pendingJRs = isMine
-    ? allJoinRequests.filter(jr => jr.rideId == ride.id && jr.status === 'PENDING')
+    ? rideJRs.filter(jr => jr.status === 'PENDING')
     : [];
 
   const passengersListHTML = confirmedPassengers.length > 0
