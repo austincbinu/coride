@@ -16,7 +16,10 @@ public class RideRequest {
     private String destination;
     private String dateTime;
     private String notes;
-    private String status;
+    private String status;        // OPEN, ACCEPTED, DECLINED
+    private String acceptedBy;    // Driver name who accepted
+    private String driverContact; // Driver phone/WhatsApp
+    private String driverVehicle; // Driver vehicle info
 
     public RideRequest() {}
 
@@ -53,4 +56,13 @@ public class RideRequest {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public String getAcceptedBy() { return acceptedBy; }
+    public void setAcceptedBy(String acceptedBy) { this.acceptedBy = acceptedBy; }
+
+    public String getDriverContact() { return driverContact; }
+    public void setDriverContact(String driverContact) { this.driverContact = driverContact; }
+
+    public String getDriverVehicle() { return driverVehicle; }
+    public void setDriverVehicle(String driverVehicle) { this.driverVehicle = driverVehicle; }
 }

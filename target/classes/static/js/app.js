@@ -108,6 +108,7 @@ document.getElementById('open-post-need-btn')?.addEventListener('click', () => {
 function renderUserMenu() {
   const menu = document.getElementById('user-menu');
   const banner = document.getElementById('verify-banner');
+  const mobileArea = document.getElementById('mobile-user-area');
 
   if (!menu) return;
 
@@ -126,6 +127,19 @@ function renderUserMenu() {
         <i class="fa-solid fa-right-from-bracket"></i> Logout
       </button>`;
     document.getElementById('logout-btn')?.addEventListener('click', logout);
+
+    // Mobile top bar — show avatar + name
+    if (mobileArea) {
+      mobileArea.innerHTML = `
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <div class="user-avatar" style="width:30px;height:30px;font-size:0.75rem;">${initials}</div>
+          <span style="font-size:0.8rem;font-weight:700;color:var(--text-main);">${currentUser.name.split(' ')[0]}</span>
+        </div>
+        <button class="btn btn-danger" id="mobile-logout-btn" style="padding:0.35rem 0.75rem;font-size:0.75rem;">
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </button>`;
+      document.getElementById('mobile-logout-btn')?.addEventListener('click', logout);
+    }
   } else {
     banner.style.display = '';
     menu.innerHTML = `
@@ -133,6 +147,15 @@ function renderUserMenu() {
         <i class="fa-solid fa-shield-check"></i> Verify Identity
       </button>`;
     document.getElementById('hdr-verify-btn')?.addEventListener('click', () => openModal('manual-modal'));
+
+    // Mobile top bar — show verify button
+    if (mobileArea) {
+      mobileArea.innerHTML = `
+        <button class="btn btn-primary" id="mobile-verify-btn" style="padding:0.4rem 0.85rem;font-size:0.8rem;">
+          <i class="fa-solid fa-shield-check"></i> Verify
+        </button>`;
+      document.getElementById('mobile-verify-btn')?.addEventListener('click', () => openModal('manual-modal'));
+    }
   }
 }
 
@@ -418,15 +441,127 @@ async function loadRequests() {
   container.querySelectorAll('.delete-req-btn').forEach(btn => {
     btn.addEventListener('click', () => deleteRequest(btn.dataset.id));
   });
+  container.querySelectorAll('.accept-req-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleRequestAction(btn.dataset.id, btn.dataset.action));
+  });
+}
+
+async function handleRequestAction(reqId, action) {
+  if (!currentUser) {
+    showToast('Please verify your identity first!', 'warning');
+    openModal('manual-modal');
+    return;
+  }
+
+  if (action === 'accept') {
+    // Find the driver's own ride to prefill vehicle and contact
+    const myRide = allRides.find(r => r.creatorName === currentUser.name);
+    const driverContact = myRide?.contactPhone || currentUser.phone || '';
+    const driverVehicle = myRide?.vehicle || '';
+
+    const { ok, data } = await apiRequest(`${API.requests}/${reqId}/accept`, 'POST', {
+      driverName:    currentUser.name,
+      driverContact: driverContact,
+      driverVehicle: driverVehicle
+    });
+
+    if (ok) {
+      showToast(data.message || 'You accepted the ride request! 🤝', 'success');
+      await loadRequests();
+      renderMyActivity();
+    } else {
+      showToast(data?.error || 'Failed to accept request.', 'error');
+    }
+
+  } else if (action === 'decline') {
+    if (!confirm('Revoke your acceptance? The request will go back to Open.')) return;
+
+    const { ok, data } = await apiRequest(`${API.requests}/${reqId}/decline`, 'POST', {
+      driverName: currentUser.name
+    });
+
+    if (ok) {
+      showToast('Acceptance revoked. Request is open again.', 'info');
+      await loadRequests();
+      renderMyActivity();
+    } else {
+      showToast(data?.error || 'Failed to revoke.', 'error');
+    }
+  }
 }
 
 function requestCardHTML(req, showDelete = false) {
   const isMine = currentUser && req.requesterName === currentUser.name;
+  const isDriver = currentUser && !isMine; // Any other verified user is a potential driver
   const initials = req.requesterName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
   const roleClass = req.requesterRole === 'Faculty' ? ' faculty' : '';
   const isShown = isMine || showDelete;
+  const isAccepted = req.status === 'ACCEPTED';
+  const iAccepted = isAccepted && currentUser && req.acceptedBy === currentUser.name;
 
-  return `<div class="request-card" data-id="${req.id}">
+  // Status badge
+  let statusBadge = '';
+  if (isAccepted) {
+    statusBadge = `<span style="background:rgba(16,185,129,0.15);color:var(--accent-emerald);border:1px solid rgba(16,185,129,0.3);padding:0.2rem 0.65rem;border-radius:20px;font-size:0.7rem;font-weight:700;">
+      <i class="fa-solid fa-circle-check"></i> Accepted by ${escHtml(req.acceptedBy)}
+    </span>`;
+  } else {
+    statusBadge = `<span style="background:rgba(99,102,241,0.1);color:var(--accent-primary);border:1px solid rgba(99,102,241,0.25);padding:0.2rem 0.65rem;border-radius:20px;font-size:0.7rem;font-weight:700;">
+      <i class="fa-solid fa-circle-dot"></i> Open
+    </span>`;
+  }
+
+  // Driver contact section (visible to requester when accepted)
+  let contactSection = '';
+  if (isMine && isAccepted) {
+    const phone = req.driverContact || '';
+    const hasPhone = phone.length > 0;
+    const rawDigits = phone.replace(/[^0-9]/g, '');
+    const waUrl = hasPhone ? `https://wa.me/${rawDigits}?text=${encodeURIComponent(`Hi ${req.acceptedBy}, I'm ${req.requesterName}. You accepted my coRide request from ${req.fromLocation} to ${req.destination}!`)}` : '#';
+    contactSection = `
+    <div style="background:rgba(16,185,129,0.08);border:1px dashed rgba(16,185,129,0.3);border-radius:10px;padding:0.85rem;margin:0.75rem 0;">
+      <div style="font-size:0.78rem;font-weight:700;color:var(--accent-emerald);margin-bottom:0.5rem;"><i class="fa-solid fa-circle-check"></i> Driver has accepted your request!</div>
+      <div style="font-size:0.82rem;color:var(--text-main);margin-bottom:0.3rem;"><strong>Driver:</strong> ${escHtml(req.acceptedBy)}</div>
+      ${req.driverVehicle ? `<div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.3rem;"><strong>Vehicle:</strong> ${escHtml(req.driverVehicle)}</div>` : ''}
+      ${hasPhone ? `<div style="font-size:0.82rem;color:var(--accent-emerald);font-weight:700;"><i class="fa-solid fa-phone"></i> ${escHtml(phone)}</div>
+      <div style="display:flex;gap:0.5rem;margin-top:0.65rem;">
+        <a href="${waUrl}" target="_blank" class="btn btn-emerald" style="font-size:0.78rem;padding:0.4rem 0.85rem;text-decoration:none;justify-content:center;">
+          <i class="fa-brands fa-whatsapp"></i> WhatsApp Driver
+        </a>
+        <a href="tel:${phone}" class="btn btn-secondary" style="font-size:0.78rem;padding:0.4rem 0.85rem;text-decoration:none;justify-content:center;">
+          <i class="fa-solid fa-phone"></i> Call
+        </a>
+      </div>` : '<div style="font-size:0.78rem;color:var(--accent-amber);">No contact number provided — reach out via campus directory.</div>'}
+    </div>`;
+  }
+
+  // Action buttons
+  let actionBtns = '';
+  if (!currentUser) {
+    actionBtns = `<button class="btn btn-secondary" style="flex:1;justify-content:center;font-size:0.82rem;" onclick="showToast('Verify your identity to offer a seat!','warning')">
+      <i class="fa-solid fa-envelope"></i> Offer a Seat
+    </button>`;
+  } else if (isMine) {
+    // Requester sees nothing extra (they see contact section above if accepted)
+    actionBtns = '';
+  } else if (isAccepted && !iAccepted) {
+    // Another driver — already accepted by someone else
+    actionBtns = `<button class="btn btn-secondary" disabled style="flex:1;justify-content:center;font-size:0.82rem;opacity:0.6;cursor:not-allowed;">
+      <i class="fa-solid fa-user-check"></i> Already Accepted
+    </button>`;
+  } else if (iAccepted) {
+    // I'm the driver who accepted — can revoke
+    actionBtns = `<button class="btn btn-danger accept-req-btn" data-action="decline" data-id="${req.id}" style="flex:1;justify-content:center;font-size:0.82rem;">
+      <i class="fa-solid fa-xmark-circle"></i> Revoke Acceptance
+    </button>`;
+  } else {
+    // Open request — driver can accept
+    actionBtns = `<button class="btn btn-emerald accept-req-btn shine-effect" data-action="accept" data-id="${req.id}" style="flex:1;justify-content:center;font-size:0.82rem;">
+      <i class="fa-solid fa-handshake"></i> Accept & Offer Seat
+    </button>`;
+  }
+
+  return `<div class="request-card" data-id="${req.id}" style="${isAccepted ? 'border-color:rgba(16,185,129,0.3);' : ''}">
     <div class="req-header">
       <div class="creator-info">
         <div class="creator-avatar" style="background:linear-gradient(135deg,var(--accent-emerald),#34d399)">${initials}</div>
@@ -435,20 +570,21 @@ function requestCardHTML(req, showDelete = false) {
           <span class="creator-role-badge${roleClass}">${escHtml(req.requesterRole || 'Student')}</span>
         </div>
       </div>
+      ${statusBadge}
     </div>
     <div class="req-route"><i class="fa-solid fa-route"></i> ${escHtml(req.fromLocation)} → ${escHtml(req.destination)}</div>
     <div class="req-meta">
       ${req.dateTime ? `<span class="meta-chip time"><i class="fa-solid fa-clock"></i>${escHtml(req.dateTime)}</span>` : ''}
     </div>
     ${req.notes ? `<div class="req-notes"><i class="fa-solid fa-note-sticky"></i> ${escHtml(req.notes)}</div>` : ''}
+    ${contactSection}
     <div style="display:flex;gap:0.6rem;margin-top:1rem;">
-      <button class="btn btn-emerald" style="flex:1;justify-content:center;font-size:0.82rem;" onclick="showToast('Message the requester to offer a seat!','info')">
-        <i class="fa-solid fa-envelope"></i> Offer a Seat
-      </button>
+      ${actionBtns}
       ${isShown ? `<button class="delete-req-btn delete-btn" data-id="${req.id}" title="Delete"><i class="fa-solid fa-trash"></i></button>` : ''}
     </div>
   </div>`;
 }
+
 
 async function deleteRequest(id) {
   if (!confirm('Delete this travel request?')) return;
@@ -627,26 +763,59 @@ document.getElementById('verify-register')?.addEventListener('input', async e =>
   }
 });
 
+// Live phone validation — show real-time feedback
+document.getElementById('verify-phone')?.addEventListener('input', e => {
+  const val = e.target.value.replace(/[^0-9]/g, '');
+  const hint = document.getElementById('phone-hint');
+  const input = e.target;
+  // Strip non-digits as user types
+  if (e.target.value !== val) e.target.value = val;
+  if (val.length === 10) {
+    input.style.borderColor = 'var(--accent-emerald)';
+    input.style.boxShadow = '0 0 0 2px rgba(16,185,129,0.25)';
+    if (hint) { hint.textContent = '✅ Valid 10-digit number'; hint.style.color = 'var(--accent-emerald)'; }
+  } else if (val.length > 0) {
+    input.style.borderColor = 'var(--accent-rose)';
+    input.style.boxShadow = '0 0 0 2px rgba(244,63,94,0.2)';
+    if (hint) { hint.textContent = `❌ ${val.length}/10 digits entered`; hint.style.color = 'var(--accent-rose)'; }
+  } else {
+    input.style.borderColor = '';
+    input.style.boxShadow = '';
+    if (hint) { hint.textContent = 'Must be exactly 10 digits (no spaces or +91)'; hint.style.color = 'var(--text-muted)'; }
+  }
+});
+
 document.getElementById('manual-verify-form')?.addEventListener('submit', async e => {
   e.preventDefault();
   const name     = document.getElementById('verify-name')?.value?.trim();
   const reg      = document.getElementById('verify-register')?.value?.trim();
+  const phone    = document.getElementById('verify-phone')?.value?.trim();
   const role     = document.querySelector('input[name="userRole"]:checked')?.value || 'Student';
   const errEl    = document.getElementById('manual-error');
   const submitBtn = document.getElementById('manual-submit-btn');
 
   if (!name) { errEl.textContent = 'Please enter your full name.'; errEl.style.display = 'block'; return; }
 
+  // Phone validation — must be exactly 10 digits
+  const phoneDigits = phone.replace(/[^0-9]/g, '');
+  if (!phone || phoneDigits.length !== 10) {
+    errEl.textContent = '⚠️ Please enter a valid 10-digit mobile number.';
+    errEl.style.display = 'block';
+    document.getElementById('verify-phone')?.focus();
+    return;
+  }
+
   submitBtn.innerHTML = '<div class="spinner"></div> Verifying…';
   submitBtn.disabled = true;
 
-  const { ok, data } = await apiRequest(API.verify, 'POST', { name, admissionNo: reg, role });
+  const { ok, data } = await apiRequest(API.verify, 'POST', { name, admissionNo: reg, role, phone: phoneDigits });
 
   submitBtn.innerHTML = '<i class="fa-solid fa-shield-check"></i> Complete Verification &amp; Enter coRide';
   submitBtn.disabled = false;
 
   if (ok && data.success) {
     currentUser = data.user;
+    currentUser.phone = phoneDigits; // store phone in session
     sessionStorage.setItem('corideUser', JSON.stringify(currentUser));
     closeModal('manual-modal');
     renderUserMenu();
