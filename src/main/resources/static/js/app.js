@@ -375,216 +375,235 @@ async function openJoinRideModal(rideId) {
   if (!ride) return;
 
   const modalBody = document.getElementById('join-ride-modal-body');
-  if (modalBody) {
-    modalBody.innerHTML = '<div style="text-align:center;padding:2.5rem;color:var(--text-muted);"><div class="spinner" style="border-top-color:var(--accent-primary);width:36px;height:36px;border-width:3px;margin:0 auto 0.75rem;"></div><p style="font-weight:600;">Loading ride & request details...</p></div>';
-  }
-  openModal('modal-join-ride');
+  if (!modalBody) return;
 
-  // Fetch real-time join requests for this specific ride directly from server
-  const rideRequestsRes = await apiRequest(`${API.joinRequests}/ride/${ride.id}`);
-  const rideJRs = rideRequestsRes.ok ? (rideRequestsRes.data || []) : [];
-
-  // Update allJoinRequests cache
-  rideJRs.forEach(jr => {
-    const idx = allJoinRequests.findIndex(x => x.id === jr.id);
-    if (idx >= 0) allJoinRequests[idx] = jr;
-    else allJoinRequests.push(jr);
-  });
   const isMine = currentUser && sameName(ride.creatorName, currentUser.name);
 
-  // My join request for this ride
-  const myJR = currentUser ? rideJRs.find(
-    jr => sameName(jr.passengerName, currentUser.name)
+  // Check join request status from existing allJoinRequests array in memory first
+  let myJR = currentUser ? allJoinRequests.find(
+    jr => String(jr.rideId) === String(ride.id) && sameName(jr.passengerName, currentUser.name)
   ) : null;
-  const isAccepted = myJR?.status === 'ACCEPTED';
-  const isPending  = myJR?.status === 'PENDING';
-  const isConfirmedLegacy = !myJR && currentUser && ride.passengers &&
+  let isAccepted = myJR?.status === 'ACCEPTED';
+  let isPending  = myJR?.status === 'PENDING';
+  let isConfirmedLegacy = !myJR && currentUser && ride.passengers &&
     ride.passengers.split(',').map(p => p.trim().toLowerCase()).includes(currentUser.name.trim().toLowerCase());
-  const isJoined = isAccepted || isConfirmedLegacy;
+  let isJoined = isAccepted || isConfirmedLegacy;
 
-  // Confirmed passengers from ride.passengers field
   const confirmedPassengers = ride.passengers
     ? ride.passengers.split(',').map(p => p.trim()).filter(p => p.length > 0)
     : [];
 
-  // Pending join requests for this ride (driver sees these)
-  const pendingJRs = isMine
-    ? rideJRs.filter(jr => jr.status === 'PENDING')
+  let pendingJRs = isMine
+    ? allJoinRequests.filter(jr => String(jr.rideId) === String(ride.id) && jr.status === 'PENDING')
     : [];
 
-  const passengersListHTML = confirmedPassengers.length > 0
-    ? confirmedPassengers.map(p => `
-        <span class="meta-chip" style="background:rgba(16,185,129,0.15);color:var(--accent-emerald);border:1px solid rgba(16,185,129,0.3);margin:0.2rem;display:inline-flex;align-items:center;">
-          <i class="fa-solid fa-user-check"></i> ${escHtml(p)}
-        </span>`).join(' ')
-    : '<span style="color:var(--text-muted);font-style:italic;font-size:0.85rem;">No confirmed co-passengers yet.</span>';
+  const confirmedCount = confirmedPassengers.length;
+  const totalCapacity = ride.seats + confirmedCount;
+  const perPersonCost = totalCapacity > 0 ? Math.round(ride.fuelCost / (totalCapacity + 1)) : Math.round(ride.fuelCost);
 
-  // Driver pending-requests section
-  let pendingSectionHTML = '';
-  if (isMine) {
-    if (pendingJRs.length > 0) {
-      pendingSectionHTML = `
-      <div style="background:rgba(245,158,11,0.08);border:1px dashed rgba(245,158,11,0.3);border-radius:10px;padding:0.85rem;margin-bottom:1rem;">
-        <label style="font-weight:700;font-size:0.85rem;display:block;margin-bottom:0.5rem;color:var(--accent-amber);">
-          <i class="fa-solid fa-user-clock"></i> Pending Join Requests (${pendingJRs.length})
-        </label>
-        <div style="display:flex;flex-direction:column;gap:0.5rem;">
-          ${pendingJRs.map(jr => `
-            <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-card);padding:0.5rem 0.75rem;border-radius:8px;border:1px solid var(--border-subtle);">
-              <span style="font-size:0.85rem;font-weight:600;color:var(--text-main);"><i class="fa-solid fa-user"></i> ${escHtml(jr.passengerName)}</span>
-              <div style="display:flex;gap:0.4rem;">
-                <button class="btn btn-emerald accept-jr-btn" data-jr-id="${jr.id}" data-ride-id="${ride.id}" style="padding:0.35rem 0.65rem;font-size:0.75rem;">
-                  <i class="fa-solid fa-check"></i> Accept
-                </button>
-                <button class="btn btn-danger decline-jr-btn" data-jr-id="${jr.id}" data-ride-id="${ride.id}" data-name="${escHtml(jr.passengerName)}" style="padding:0.35rem 0.65rem;font-size:0.75rem;">
-                  <i class="fa-solid fa-xmark"></i> Decline
-                </button>
+  function renderModalContent() {
+    const passengersListHTML = confirmedPassengers.length > 0
+      ? confirmedPassengers.map(p => `
+          <span class="meta-chip" style="background:rgba(16,185,129,0.15);color:var(--accent-emerald);border:1px solid rgba(16,185,129,0.3);margin:0.2rem;display:inline-flex;align-items:center;">
+            <i class="fa-solid fa-user-check"></i> ${escHtml(p)}
+          </span>`).join(' ')
+      : '<span style="color:var(--text-muted);font-style:italic;font-size:0.85rem;">No confirmed co-passengers yet.</span>';
+
+    let pendingSectionHTML = '';
+    if (isMine) {
+      if (pendingJRs.length > 0) {
+        pendingSectionHTML = `
+        <div style="background:rgba(245,158,11,0.08);border:1px dashed rgba(245,158,11,0.3);border-radius:10px;padding:0.85rem;margin-bottom:1rem;">
+          <label style="font-weight:700;font-size:0.85rem;display:block;margin-bottom:0.5rem;color:var(--accent-amber);">
+            <i class="fa-solid fa-user-clock"></i> Pending Join Requests (${pendingJRs.length})
+          </label>
+          <div style="display:flex;flex-direction:column;gap:0.5rem;">
+            ${pendingJRs.map(jr => `
+              <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-card);padding:0.5rem 0.75rem;border-radius:8px;border:1px solid var(--border-subtle);">
+                <span style="font-size:0.85rem;font-weight:600;color:var(--text-main);"><i class="fa-solid fa-user"></i> ${escHtml(jr.passengerName)}</span>
+                <div style="display:flex;gap:0.4rem;">
+                  <button class="btn btn-emerald accept-jr-btn" data-jr-id="${jr.id}" data-ride-id="${ride.id}" style="padding:0.35rem 0.65rem;font-size:0.75rem;">
+                    <i class="fa-solid fa-check"></i> Accept
+                  </button>
+                  <button class="btn btn-danger decline-jr-btn" data-jr-id="${jr.id}" data-ride-id="${ride.id}" data-name="${escHtml(jr.passengerName)}" style="padding:0.35rem 0.65rem;font-size:0.75rem;">
+                    <i class="fa-solid fa-xmark"></i> Decline
+                  </button>
+                </div>
               </div>
-            </div>
-          `).join('')}
-        </div>
-      </div>`;
-    } else {
-      pendingSectionHTML = `
-      <div style="background:rgba(255,255,255,0.03);border-radius:10px;padding:0.75rem;margin-bottom:1rem;font-size:0.82rem;color:var(--text-muted);text-align:center;">
-        <i class="fa-solid fa-circle-info"></i> No pending join requests right now.
-      </div>`;
+            `).join('')}
+          </div>
+        </div>`;
+      } else {
+        pendingSectionHTML = `
+        <div style="background:rgba(255,255,255,0.03);border-radius:10px;padding:0.75rem;margin-bottom:1rem;font-size:0.82rem;color:var(--text-muted);text-align:center;">
+          <i class="fa-solid fa-circle-info"></i> No pending join requests right now.
+        </div>`;
+      }
     }
-  }
 
-  const phone = ride.contactPhone?.trim() || '';
-  const hasPhone = phone.length > 0;
-  const rawDigits = phone.replace(/[^0-9]/g, '');
-  const whatsappUrl = hasPhone ? `https://wa.me/${rawDigits}?text=${encodeURIComponent(`Hi ${ride.creatorName}, I'd like to join your coRide from ${ride.fromLocation} to ${ride.destination}!`)}` : '#';
-  const telUrl = hasPhone ? `tel:${phone}` : '#';
+    const phone = ride.contactPhone?.trim() || '';
+    const hasPhone = phone.length > 0;
+    const rawDigits = phone.replace(/[^0-9]/g, '');
+    const whatsappUrl = hasPhone ? `https://wa.me/${rawDigits}?text=${encodeURIComponent(`Hi ${ride.creatorName}, I'd like to join your coRide from ${ride.fromLocation} to ${ride.destination}!`)}` : '#';
+    const telUrl = hasPhone ? `tel:${phone}` : '#';
 
-  let actionButtonsHTML = '';
-  if (!currentUser) {
-    actionButtonsHTML = `
-      <div style="flex:1;background:rgba(245,158,11,0.12);border:1px dashed rgba(245,158,11,0.3);border-radius:10px;padding:0.75rem;text-align:center;">
-        <span style="font-size:0.85rem;color:var(--accent-amber);font-weight:600;display:block;margin-bottom:0.5rem;">
-          <i class="fa-solid fa-shield-exclamation"></i> Verify your campus identity to join this ride
-        </span>
-        <button class="btn btn-primary btn-sm" id="modal-verify-now-btn" style="padding:0.35rem 0.85rem;font-size:0.8rem;">
-          <i class="fa-solid fa-shield-check"></i> Verify Identity Now
-        </button>
-      </div>`;
-  } else if (isMine) {
-    actionButtonsHTML = `
-      <div style="flex:1;text-align:center;padding:0.6rem;background:rgba(99,102,241,0.12);color:var(--accent-primary);border-radius:8px;font-weight:600;font-size:0.85rem;">
-        <i class="fa-solid fa-user-shield"></i> You are the driver of this ride
-      </div>`;
-  } else if (isJoined) {
-    actionButtonsHTML = `
-      <div style="flex:1;text-align:center;padding:0.6rem;background:rgba(16,185,129,0.15);color:var(--accent-emerald);border-radius:8px;font-weight:600;">
-        <i class="fa-solid fa-circle-check"></i> Driver Accepted! Seat Confirmed
-      </div>
-      <button class="btn btn-danger shine-effect" style="flex:1;" id="cancel-join-btn" data-jr-id="${myJR?.id}">
-        <i class="fa-solid fa-xmark-circle"></i> Cancel Seat
-      </button>`;
-  } else if (isPending) {
-    actionButtonsHTML = `
-      <div style="flex:1;text-align:center;padding:0.6rem;background:rgba(245,158,11,0.15);color:var(--accent-amber);border-radius:8px;font-weight:600;">
-        <i class="fa-solid fa-hourglass-half"></i> Request Pending Driver Approval
-      </div>
-      <button class="btn btn-danger shine-effect" style="flex:1;" id="cancel-join-btn" data-jr-id="${myJR?.id}">
-        <i class="fa-solid fa-xmark-circle"></i> Cancel Request
-      </button>`;
-  } else if (ride.seats > 0) {
-    actionButtonsHTML = `
-      <button class="btn btn-emerald shine-effect" style="flex:1;" id="confirm-join-btn">
-        <i class="fa-solid fa-paper-plane"></i> Send Join Request to Driver
-      </button>`;
-  } else {
-    actionButtonsHTML = `
-      <div style="flex:1;text-align:center;padding:0.6rem;background:rgba(244,63,94,0.15);color:var(--accent-rose);border-radius:8px;font-weight:600;">
-        <i class="fa-solid fa-ban"></i> Ride Fully Booked
-      </div>`;
-  }
+    let actionButtonsHTML = '';
+    if (!currentUser) {
+      actionButtonsHTML = `
+        <div style="flex:1;background:rgba(245,158,11,0.12);border:1px dashed rgba(245,158,11,0.3);border-radius:10px;padding:0.75rem;text-align:center;">
+          <span style="font-size:0.85rem;color:var(--accent-amber);font-weight:600;display:block;margin-bottom:0.5rem;">
+            <i class="fa-solid fa-shield-exclamation"></i> Verify your campus identity to join this ride
+          </span>
+          <button class="btn btn-primary btn-sm" id="modal-verify-now-btn" style="padding:0.35rem 0.85rem;font-size:0.8rem;">
+            <i class="fa-solid fa-shield-check"></i> Verify Identity Now
+          </button>
+        </div>`;
+    } else if (isMine) {
+      actionButtonsHTML = `
+        <div style="flex:1;text-align:center;padding:0.6rem;background:rgba(99,102,241,0.12);color:var(--accent-primary);border-radius:8px;font-weight:600;font-size:0.85rem;">
+          <i class="fa-solid fa-user-shield"></i> You are the driver of this ride
+        </div>`;
+    } else if (isJoined) {
+      actionButtonsHTML = `
+        <div style="flex:1;text-align:center;padding:0.6rem;background:rgba(16,185,129,0.15);color:var(--accent-emerald);border-radius:8px;font-weight:600;">
+          <i class="fa-solid fa-circle-check"></i> Driver Accepted! Seat Confirmed
+        </div>
+        <button class="btn btn-danger shine-effect" style="flex:1;" id="cancel-join-btn" data-jr-id="${myJR?.id}">
+          <i class="fa-solid fa-xmark-circle"></i> Cancel Seat
+        </button>`;
+    } else if (isPending) {
+      actionButtonsHTML = `
+        <div style="flex:1;text-align:center;padding:0.6rem;background:rgba(245,158,11,0.15);color:var(--accent-amber);border-radius:8px;font-weight:600;">
+          <i class="fa-solid fa-hourglass-half"></i> Request Pending Driver Approval
+        </div>
+        <button class="btn btn-danger shine-effect" style="flex:1;" id="cancel-join-btn" data-jr-id="${myJR?.id}">
+          <i class="fa-solid fa-xmark-circle"></i> Cancel Request
+        </button>`;
+    } else if (ride.seats > 0) {
+      actionButtonsHTML = `
+        <button class="btn btn-emerald shine-effect" style="flex:1;" id="confirm-join-btn">
+          <i class="fa-solid fa-paper-plane"></i> Send Join Request to Driver
+        </button>`;
+    } else {
+      actionButtonsHTML = `
+        <div style="flex:1;text-align:center;padding:0.6rem;background:rgba(244,63,94,0.15);color:var(--accent-rose);border-radius:8px;font-weight:600;">
+          <i class="fa-solid fa-ban"></i> Ride Fully Booked
+        </div>`;
+    }
 
-  if (hasPhone && (isMine || isJoined)) {
-    actionButtonsHTML += `
-      <a href="${whatsappUrl}" target="_blank" class="btn btn-secondary" style="justify-content:center;text-decoration:none;">
-        <i class="fa-brands fa-whatsapp" style="color:#25D366;"></i> WhatsApp
-      </a>
-      <a href="${telUrl}" class="btn btn-secondary" style="justify-content:center;text-decoration:none;">
-        <i class="fa-solid fa-phone" style="color:var(--accent-primary);"></i> Call
-      </a>`;
-  }
+    if (hasPhone && (isMine || isJoined)) {
+      actionButtonsHTML += `
+        <a href="${whatsappUrl}" target="_blank" class="btn btn-secondary" style="justify-content:center;text-decoration:none;">
+          <i class="fa-brands fa-whatsapp" style="color:#25D366;"></i> WhatsApp
+        </a>
+        <a href="${telUrl}" class="btn btn-secondary" style="justify-content:center;text-decoration:none;">
+          <i class="fa-solid fa-phone" style="color:var(--accent-primary);"></i> Call
+        </a>`;
+    }
 
-  modalBody.innerHTML = `
-    <div style="background:var(--bg-card2);padding:1rem;border-radius:12px;border:1px solid var(--border-card);margin-bottom:1rem;">
-      <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem;">
-        <div class="creator-avatar">${ride.creatorName.slice(0,2).toUpperCase()}</div>
-        <div>
-          <div style="font-weight:700;font-size:1.1rem;">${escHtml(ride.creatorName)}</div>
-          <div style="font-size:0.8rem;color:var(--accent-primary);"><i class="fa-solid fa-shield-check"></i> Verified Campus ${escHtml(ride.creatorRole || 'Driver')}</div>
+    modalBody.innerHTML = `
+      <div style="background:var(--bg-card2);padding:1rem;border-radius:12px;border:1px solid var(--border-card);margin-bottom:1rem;">
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem;">
+          <div class="creator-avatar">${ride.creatorName.slice(0,2).toUpperCase()}</div>
+          <div>
+            <div style="font-weight:700;font-size:1.1rem;">${escHtml(ride.creatorName)}</div>
+            <div style="font-size:0.8rem;color:var(--accent-primary);"><i class="fa-solid fa-shield-check"></i> Verified Campus ${escHtml(ride.creatorRole || 'Driver')}</div>
+          </div>
+        </div>
+        <div class="route-display" style="margin-bottom:0.75rem;">
+          <div class="route-point"><span class="route-label">Pickup</span><span class="route-value">${escHtml(ride.fromLocation)}</span></div>
+          <div class="route-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+          <div class="route-point"><span class="route-label">Destination</span><span class="route-value">${escHtml(ride.destination)}</span></div>
+        </div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;font-size:0.85rem;color:var(--text-secondary);">
+          <span><i class="fa-solid fa-clock" style="color:var(--accent-primary);"></i> ${escHtml(ride.dateTime)}</span>
+          <span>•</span>
+          <span><i class="fa-solid fa-car" style="color:var(--accent-emerald);"></i> ${escHtml(ride.vehicle || 'Car')}</span>
+          <span>•</span>
+          <span><i class="fa-solid fa-chair" style="color:var(--accent-amber);"></i> ${ride.seats} seat${ride.seats !== 1 ? 's' : ''} left</span>
+          ${ride.fuelCost > 0 ? `<span>•</span><span style="color:var(--accent-amber);font-weight:700;"><i class="fa-solid fa-indian-rupee-sign"></i> ₹${perPersonCost} / person</span>` : ''}
         </div>
       </div>
-      <div class="route-display" style="margin-bottom:0.75rem;">
-        <div class="route-point"><span class="route-label">Pickup</span><span class="route-value">${escHtml(ride.fromLocation)}</span></div>
-        <div class="route-arrow"><i class="fa-solid fa-arrow-right"></i></div>
-        <div class="route-point"><span class="route-label">Destination</span><span class="route-value">${escHtml(ride.destination)}</span></div>
+
+      ${pendingSectionHTML}
+
+      <div style="margin-bottom:1rem;">
+        <label style="font-weight:600;font-size:0.85rem;display:block;margin-bottom:0.4rem;color:var(--text-secondary);">
+          <i class="fa-solid fa-users"></i> Confirmed Passengers
+        </label>
+        <div style="display:flex;flex-wrap:wrap;gap:0.3rem;">${passengersListHTML}</div>
       </div>
-      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;font-size:0.85rem;color:var(--text-secondary);">
-        <span><i class="fa-solid fa-clock" style="color:var(--accent-primary);"></i> ${escHtml(ride.dateTime)}</span>
-        <span>•</span>
-        <span><i class="fa-solid fa-car" style="color:var(--accent-emerald);"></i> ${escHtml(ride.vehicle || 'Car')}</span>
-        <span>•</span>
-        <span><i class="fa-solid fa-chair" style="color:var(--accent-amber);"></i> ${ride.seats} seat${ride.seats !== 1 ? 's' : ''} left</span>
-        ${ride.fuelCost > 0 ? `<span>•</span><span style="color:var(--accent-amber);font-weight:700;"><i class="fa-solid fa-indian-rupee-sign"></i> ₹${perPersonCost} / person</span>` : ''}
+
+      <div style="background:rgba(99,102,241,0.08);padding:0.85rem;border-radius:10px;border:1px dashed var(--border-card);margin-bottom:1.25rem;">
+        <div style="font-weight:700;font-size:0.85rem;color:var(--accent-primary);margin-bottom:0.4rem;">
+          <i class="fa-solid fa-address-book"></i> Driver Contact Info
+        </div>
+        <div style="font-size:0.85rem;color:var(--text-main);">
+          <div><strong>Driver:</strong> ${escHtml(ride.creatorName)} (${escHtml(ride.creatorRole || 'Student')})</div>
+          <div><strong>Phone / WhatsApp:</strong> ${hasPhone ? `<strong style="color:var(--accent-emerald);">${escHtml(phone)}</strong>` : '<span style="color:var(--accent-amber);font-style:italic;">Not provided</span>'}</div>
+        </div>
       </div>
-    </div>
 
-    ${pendingSectionHTML}
-
-    <div style="margin-bottom:1rem;">
-      <label style="font-weight:600;font-size:0.85rem;display:block;margin-bottom:0.4rem;color:var(--text-secondary);">
-        <i class="fa-solid fa-users"></i> Confirmed Passengers
-      </label>
-      <div style="display:flex;flex-wrap:wrap;gap:0.3rem;">${passengersListHTML}</div>
-    </div>
-
-    <div style="background:rgba(99,102,241,0.08);padding:0.85rem;border-radius:10px;border:1px dashed var(--border-card);margin-bottom:1.25rem;">
-      <div style="font-weight:700;font-size:0.85rem;color:var(--accent-primary);margin-bottom:0.4rem;">
-        <i class="fa-solid fa-address-book"></i> Driver Contact Info
+      <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
+        ${actionButtonsHTML}
       </div>
-      <div style="font-size:0.85rem;color:var(--text-main);">
-        <div><strong>Driver:</strong> ${escHtml(ride.creatorName)} (${escHtml(ride.creatorRole || 'Student')})</div>
-        <div><strong>Phone / WhatsApp:</strong> ${hasPhone ? `<strong style="color:var(--accent-emerald);">${escHtml(phone)}</strong>` : '<span style="color:var(--accent-amber);font-style:italic;">Not provided</span>'}</div>
-      </div>
-    </div>
+    `;
 
-    <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
-      ${actionButtonsHTML}
-    </div>
-  `;
+    // Bind verify now button for unverified users
+    document.getElementById('modal-verify-now-btn')?.addEventListener('click', () => {
+      closeModal('modal-join-ride');
+      openModal('manual-modal');
+    });
 
-  // Bind verify now button for unverified users
-  document.getElementById('modal-verify-now-btn')?.addEventListener('click', () => {
-    closeModal('modal-join-ride');
-    openModal('manual-modal');
-  });
+    // Bind confirm join button
+    document.getElementById('confirm-join-btn')?.addEventListener('click', () => confirmJoinRide(ride.id));
 
-  // Bind confirm join button
-  document.getElementById('confirm-join-btn')?.addEventListener('click', () => confirmJoinRide(ride.id));
+    // Bind cancel button
+    const cancelBtn = document.getElementById('cancel-join-btn');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        const jrId = cancelBtn.dataset.jrId;
+        cancelJoinRequest(jrId, ride.id);
+      });
+    }
 
-  // Bind cancel button
-  const cancelBtn = document.getElementById('cancel-join-btn');
-  if (cancelBtn) {
-    cancelBtn.addEventListener('click', () => {
-      const jrId = cancelBtn.dataset.jrId;
-      cancelJoinRequest(jrId, ride.id);
+    // Driver: bind accept/decline buttons
+    modalBody.querySelectorAll('.accept-jr-btn').forEach(btn => {
+      btn.addEventListener('click', () => acceptJoinRequest(btn.dataset.jrId, btn.dataset.rideId));
+    });
+    modalBody.querySelectorAll('.decline-jr-btn').forEach(btn => {
+      btn.addEventListener('click', () => declineJoinRequest(btn.dataset.jrId, btn.dataset.rideId, btn.dataset.name));
     });
   }
 
-  // Driver: bind accept/decline buttons
-  modalBody.querySelectorAll('.accept-jr-btn').forEach(btn => {
-    btn.addEventListener('click', () => acceptJoinRequest(btn.dataset.jrId, btn.dataset.rideId));
-  });
-  modalBody.querySelectorAll('.decline-jr-btn').forEach(btn => {
-    btn.addEventListener('click', () => declineJoinRequest(btn.dataset.jrId, btn.dataset.rideId, btn.dataset.name));
-  });
+  // Render modal content IMMEDIATELY from memory
+  renderModalContent();
+  openModal('modal-join-ride');
+
+  // Async background fetch to enrich join requests without blocking modal display
+  try {
+    const rideRequestsRes = await apiRequest(`${API.joinRequests}/ride/${ride.id}`);
+    if (rideRequestsRes.ok && rideRequestsRes.data) {
+      const rideJRs = rideRequestsRes.data;
+      rideJRs.forEach(jr => {
+        const idx = allJoinRequests.findIndex(x => x.id === jr.id);
+        if (idx >= 0) allJoinRequests[idx] = jr;
+        else allJoinRequests.push(jr);
+      });
+
+      myJR = currentUser ? rideJRs.find(
+        jr => sameName(jr.passengerName, currentUser.name)
+      ) : null;
+      isAccepted = myJR?.status === 'ACCEPTED';
+      isPending  = myJR?.status === 'PENDING';
+      isJoined   = isAccepted || isConfirmedLegacy;
+      pendingJRs = isMine ? rideJRs.filter(jr => jr.status === 'PENDING') : [];
+
+      renderModalContent(); // Re-render with fresh background data
+    }
+  } catch (e) {
+    console.warn('Background join request fetch warning:', e);
+  }
 }
 
 // Passenger sends a join request
