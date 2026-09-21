@@ -443,6 +443,60 @@ async function openJoinRideModal(rideId) {
   const whatsappUrl = hasPhone ? `https://wa.me/${rawDigits}?text=${encodeURIComponent(`Hi ${ride.creatorName}, I'd like to join your coRide from ${ride.fromLocation} to ${ride.destination}!`)}` : '#';
   const telUrl = hasPhone ? `tel:${phone}` : '#';
 
+  let actionButtonsHTML = '';
+  if (!currentUser) {
+    actionButtonsHTML = `
+      <div style="flex:1;background:rgba(245,158,11,0.12);border:1px dashed rgba(245,158,11,0.3);border-radius:10px;padding:0.75rem;text-align:center;">
+        <span style="font-size:0.85rem;color:var(--accent-amber);font-weight:600;display:block;margin-bottom:0.5rem;">
+          <i class="fa-solid fa-shield-exclamation"></i> Verify your campus identity to join this ride
+        </span>
+        <button class="btn btn-primary btn-sm" id="modal-verify-now-btn" style="padding:0.35rem 0.85rem;font-size:0.8rem;">
+          <i class="fa-solid fa-shield-check"></i> Verify Identity Now
+        </button>
+      </div>`;
+  } else if (isMine) {
+    actionButtonsHTML = `
+      <div style="flex:1;text-align:center;padding:0.6rem;background:rgba(99,102,241,0.12);color:var(--accent-primary);border-radius:8px;font-weight:600;font-size:0.85rem;">
+        <i class="fa-solid fa-user-shield"></i> You are the driver of this ride
+      </div>`;
+  } else if (isJoined) {
+    actionButtonsHTML = `
+      <div style="flex:1;text-align:center;padding:0.6rem;background:rgba(16,185,129,0.15);color:var(--accent-emerald);border-radius:8px;font-weight:600;">
+        <i class="fa-solid fa-circle-check"></i> Driver Accepted! Seat Confirmed
+      </div>
+      <button class="btn btn-danger shine-effect" style="flex:1;" id="cancel-join-btn" data-jr-id="${myJR?.id}">
+        <i class="fa-solid fa-xmark-circle"></i> Cancel Seat
+      </button>`;
+  } else if (isPending) {
+    actionButtonsHTML = `
+      <div style="flex:1;text-align:center;padding:0.6rem;background:rgba(245,158,11,0.15);color:var(--accent-amber);border-radius:8px;font-weight:600;">
+        <i class="fa-solid fa-hourglass-half"></i> Request Pending Driver Approval
+      </div>
+      <button class="btn btn-danger shine-effect" style="flex:1;" id="cancel-join-btn" data-jr-id="${myJR?.id}">
+        <i class="fa-solid fa-xmark-circle"></i> Cancel Request
+      </button>`;
+  } else if (ride.seats > 0) {
+    actionButtonsHTML = `
+      <button class="btn btn-emerald shine-effect" style="flex:1;" id="confirm-join-btn">
+        <i class="fa-solid fa-paper-plane"></i> Send Join Request to Driver
+      </button>`;
+  } else {
+    actionButtonsHTML = `
+      <div style="flex:1;text-align:center;padding:0.6rem;background:rgba(244,63,94,0.15);color:var(--accent-rose);border-radius:8px;font-weight:600;">
+        <i class="fa-solid fa-ban"></i> Ride Fully Booked
+      </div>`;
+  }
+
+  if (hasPhone && (isMine || isJoined)) {
+    actionButtonsHTML += `
+      <a href="${whatsappUrl}" target="_blank" class="btn btn-secondary" style="justify-content:center;text-decoration:none;">
+        <i class="fa-brands fa-whatsapp" style="color:#25D366;"></i> WhatsApp
+      </a>
+      <a href="${telUrl}" class="btn btn-secondary" style="justify-content:center;text-decoration:none;">
+        <i class="fa-solid fa-phone" style="color:var(--accent-primary);"></i> Call
+      </a>`;
+  }
+
   modalBody.innerHTML = `
     <div style="background:var(--bg-card2);padding:1rem;border-radius:12px;border:1px solid var(--border-card);margin-bottom:1rem;">
       <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem;">
@@ -487,39 +541,17 @@ async function openJoinRideModal(rideId) {
     </div>
 
     <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
-      ${!isMine && !isJoined && !isPending && ride.seats > 0 ? `
-        <button class="btn btn-emerald shine-effect" style="flex:1;" id="confirm-join-btn">
-          <i class="fa-solid fa-paper-plane"></i> Send Join Request to Driver
-        </button>
-      ` : ''}
-      ${isPending ? `
-        <div style="flex:1;text-align:center;padding:0.6rem;background:rgba(245,158,11,0.15);color:var(--accent-amber);border-radius:8px;font-weight:600;">
-          <i class="fa-solid fa-hourglass-half"></i> Request Pending Driver Approval
-        </div>
-        <button class="btn btn-danger shine-effect" style="flex:1;" id="cancel-join-btn" data-jr-id="${myJR?.id}">
-          <i class="fa-solid fa-xmark-circle"></i> Cancel Request
-        </button>
-      ` : ''}
-      ${isJoined ? `
-        <div style="flex:1;text-align:center;padding:0.6rem;background:rgba(16,185,129,0.15);color:var(--accent-emerald);border-radius:8px;font-weight:600;">
-          <i class="fa-solid fa-circle-check"></i> Driver Accepted! Seat Confirmed
-        </div>
-        <button class="btn btn-danger shine-effect" style="flex:1;" id="cancel-join-btn" data-jr-id="${myJR?.id}">
-          <i class="fa-solid fa-xmark-circle"></i> Cancel Seat
-        </button>
-      ` : ''}
-      ${hasPhone && (isMine || isJoined) ? `
-        <a href="${whatsappUrl}" target="_blank" class="btn btn-secondary" style="justify-content:center;text-decoration:none;">
-          <i class="fa-brands fa-whatsapp" style="color:#25D366;"></i> WhatsApp
-        </a>
-        <a href="${telUrl}" class="btn btn-secondary" style="justify-content:center;text-decoration:none;">
-          <i class="fa-solid fa-phone" style="color:var(--accent-primary);"></i> Call
-        </a>
-      ` : ''}
+      ${actionButtonsHTML}
     </div>
   `;
 
   openModal('modal-join-ride');
+
+  // Bind verify now button for unverified users
+  document.getElementById('modal-verify-now-btn')?.addEventListener('click', () => {
+    closeModal('modal-join-ride');
+    openModal('manual-modal');
+  });
 
   // Bind confirm join button
   document.getElementById('confirm-join-btn')?.addEventListener('click', () => confirmJoinRide(ride.id));
@@ -551,6 +583,12 @@ async function confirmJoinRide(rideId) {
     return;
   }
 
+  const confirmBtn = document.getElementById('confirm-join-btn');
+  if (confirmBtn) {
+    confirmBtn.innerHTML = '<div class="spinner"></div> Sending Request...';
+    confirmBtn.disabled = true;
+  }
+
   const { ok, data, error } = await apiRequest(API.joinRequests, 'POST', {
     rideId: rideId,
     passengerName: currentUser.name
@@ -558,11 +596,15 @@ async function confirmJoinRide(rideId) {
 
   if (ok) {
     showToast(data.message || 'Join request sent! Waiting for driver approval.', 'success');
-    closeModal('modal-join-ride');
     await loadAllJoinRequests();
-    loadRides();
+    await loadRides();
+    openJoinRideModal(rideId);
   } else {
     showToast(data?.error || error || 'Failed to send join request.', 'error');
+    if (confirmBtn) {
+      confirmBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Join Request to Driver';
+      confirmBtn.disabled = false;
+    }
   }
 }
 

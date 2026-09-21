@@ -68,7 +68,11 @@ public class JoinRequestController {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Ride not found."));
         }
 
-        Ride ride = rideOpt.get();
+                Ride ride = rideOpt.get();
+
+        if (passengerName.equalsIgnoreCase(ride.getCreatorName().trim())) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", "You cannot request to join your own ride offer."));
+        }
 
         // Check if already requested
         Optional<JoinRequest> existing = joinRequestRepository.findByRideIdAndPassengerName(rideId, passengerName);
@@ -115,6 +119,7 @@ public class JoinRequestController {
         if (rideOpt.isEmpty()) return ResponseEntity.badRequest().body(Map.of("success", false, "error", "Ride not found."));
 
         Ride ride = rideOpt.get();
+
         if (ride.getSeats() <= 0) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "error", "No seats left to accept passenger."));
         }
