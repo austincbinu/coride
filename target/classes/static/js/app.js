@@ -1,5 +1,5 @@
 ﻿/* =============================================================
-   coRide Java Web â€“ Frontend Application Script
+   coRide Java Web – Frontend Application Script
    Connects to Spring Boot REST API at /api/*
    ============================================================= */
 
@@ -19,7 +19,7 @@ const API = {
 let currentUser     = JSON.parse(sessionStorage.getItem('corideUser') || 'null');
 let allRides        = [];
 let allRequests     = [];
-let allJoinRequests = []; // All join requests â€“ fetched fresh each refresh
+let allJoinRequests = []; // All join requests – fetched fresh each refresh
 
 // â”€â”€ Admission regex (mirrors Java service) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const ADMISSION_NO_REGEX = /^(\d{2})\/(\d{3})\/([A-Za-z]{2,3})$/;
@@ -130,7 +130,7 @@ function renderUserMenu() {
       </button>`;
     document.getElementById('logout-btn')?.addEventListener('click', logout);
 
-    // Mobile top bar â€” show avatar + name
+    // Mobile top bar ” show avatar + name
     if (mobileArea) {
       mobileArea.innerHTML = `
         <div style="display:flex;align-items:center;gap:0.5rem;">
@@ -150,7 +150,7 @@ function renderUserMenu() {
       </button>`;
     document.getElementById('hdr-verify-btn')?.addEventListener('click', () => openModal('manual-modal'));
 
-    // Mobile top bar â€” show verify button
+    // Mobile top bar ” show verify button
     if (mobileArea) {
       mobileArea.innerHTML = `
         <button class="btn btn-primary" id="mobile-verify-btn" style="padding:0.4rem 0.85rem;font-size:0.8rem;">
@@ -266,6 +266,9 @@ function rideCardHTML(ride) {
   const isMine = currentUser && sameName(ride.creatorName, currentUser.name);
   const initials = ride.creatorName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
   const roleClass = ride.creatorRole === 'Faculty' ? ' faculty' : '';
+  const confirmedCount = ride.passengers ? ride.passengers.split(',').filter(p => p.trim().length > 0).length : 0;
+  const totalCapacity = ride.seats + confirmedCount;
+  const perPersonCost = totalCapacity > 0 ? Math.round(ride.fuelCost / (totalCapacity + 1)) : Math.round(ride.fuelCost);
   const isFull = ride.seats <= 0 || ride.status === 'FULL';
 
   // Check join request status from allJoinRequests
@@ -334,7 +337,7 @@ function rideCardHTML(ride) {
     <div class="ride-meta">
       ${ride.dateTime ? `<span class="meta-chip time"><i class="fa-solid fa-clock"></i>${escHtml(ride.dateTime)}</span>` : ''}
       <span class="meta-chip seats"><i class="fa-solid fa-users"></i>${ride.seats} seat${ride.seats !== 1 ? 's' : ''} remaining</span>
-      ${ride.fuelCost > 0 ? `<span class="meta-chip" style="background:rgba(245,158,11,0.15);color:var(--accent-amber);border:1px solid rgba(245,158,11,0.3);"><i class="fa-solid fa-indian-rupee-sign"></i>${Math.round(ride.fuelCost / (ride.seats + 1))}/person</span>` : ''}
+      ${ride.fuelCost > 0 ? `<span class="meta-chip" style="background:rgba(245,158,11,0.15);color:var(--accent-amber);border:1px solid rgba(245,158,11,0.3);"><i class="fa-solid fa-indian-rupee-sign"></i>₹${perPersonCost} / person</span>` : ''}
     </div>
     ${ride.notes ? `<div class="ride-notes"><i class="fa-solid fa-note-sticky"></i> ${escHtml(ride.notes)}</div>` : ''}
     <div class="ride-card-actions">
@@ -345,7 +348,7 @@ function rideCardHTML(ride) {
 }
 
 /* =============================================================
-   JOIN RIDE MODAL  â€” uses /api/join-requests
+   JOIN RIDE MODAL  ” uses /api/join-requests
 ============================================================= */
 async function openJoinRideModal(rideId) {
   const ride = allRides.find(r => r.id == rideId);
@@ -436,11 +439,11 @@ async function openJoinRideModal(rideId) {
       </div>
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap;font-size:0.85rem;color:var(--text-secondary);">
         <span><i class="fa-solid fa-clock" style="color:var(--accent-primary);"></i> ${escHtml(ride.dateTime)}</span>
-        <span>â€¢</span>
+        <span>•</span>
         <span><i class="fa-solid fa-car" style="color:var(--accent-emerald);"></i> ${escHtml(ride.vehicle || 'Car')}</span>
-        <span>â€¢</span>
+        <span>•</span>
         <span><i class="fa-solid fa-chair" style="color:var(--accent-amber);"></i> ${ride.seats} seat${ride.seats !== 1 ? 's' : ''} left</span>
-        ${ride.fuelCost > 0 ? `<span>â€¢</span><span style="color:var(--accent-amber);font-weight:700;"><i class="fa-solid fa-indian-rupee-sign"></i> ${Math.round(ride.fuelCost / (ride.seats + 1))}/person</span>` : ''}
+        ${ride.fuelCost > 0 ? `<span>•</span><span style="color:var(--accent-amber);font-weight:700;"><i class="fa-solid fa-indian-rupee-sign"></i> ₹${perPersonCost} / person</span>` : ''}
       </div>
     </div>
 
@@ -599,7 +602,7 @@ async function deleteRide(id) {
 ============================================================= */
 async function loadRequests() {
   const container = document.getElementById('requests-container');
-  container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-muted);"><div class="spinner" style="border-top-color:var(--accent-emerald);width:36px;height:36px;border-width:3px;margin:0 auto 1rem;"></div><p>Loading requestsâ€¦</p></div>';
+  container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-muted);"><div class="spinner" style="border-top-color:var(--accent-emerald);width:36px;height:36px;border-width:3px;margin:0 auto 1rem;"></div><p>Loading requests...</p></div>';
 
   const { ok, data } = await apiRequest(API.requests);
   allRequests = ok ? (data || []) : [];
@@ -711,7 +714,7 @@ function requestCardHTML(req, showDelete = false) {
         <a href="tel:${phone}" class="btn btn-secondary" style="font-size:0.78rem;padding:0.4rem 0.85rem;text-decoration:none;justify-content:center;">
           <i class="fa-solid fa-phone"></i> Call
         </a>
-      </div>` : '<div style="font-size:0.78rem;color:var(--accent-amber);">No contact number provided â€” reach out via campus directory.</div>'}
+      </div>` : '<div style="font-size:0.78rem;color:var(--accent-amber);">No contact number provided ” reach out via campus directory.</div>'}
     </div>`;
   }
 
@@ -725,17 +728,17 @@ function requestCardHTML(req, showDelete = false) {
     // Requester sees nothing extra (they see contact section above if accepted)
     actionBtns = '';
   } else if (isAccepted && !iAccepted) {
-    // Another driver â€” already accepted by someone else
+    // Another driver ” already accepted by someone else
     actionBtns = `<button class="btn btn-secondary" disabled style="flex:1;justify-content:center;font-size:0.82rem;opacity:0.6;cursor:not-allowed;">
       <i class="fa-solid fa-user-check"></i> Already Accepted
     </button>`;
   } else if (iAccepted) {
-    // I'm the driver who accepted â€” can revoke
+    // I'm the driver who accepted ” can revoke
     actionBtns = `<button class="btn btn-danger accept-req-btn" data-action="decline" data-id="${req.id}" style="flex:1;justify-content:center;font-size:0.82rem;">
       <i class="fa-solid fa-xmark-circle"></i> Revoke Acceptance
     </button>`;
   } else {
-    // Open request â€” driver can accept
+    // Open request ” driver can accept
     actionBtns = `<button class="btn btn-emerald accept-req-btn shine-effect" data-action="accept" data-id="${req.id}" style="flex:1;justify-content:center;font-size:0.82rem;">
       <i class="fa-solid fa-handshake"></i> Accept & Offer Seat
     </button>`;
@@ -752,7 +755,7 @@ function requestCardHTML(req, showDelete = false) {
       </div>
       ${statusBadge}
     </div>
-    <div class="req-route"><i class="fa-solid fa-route"></i> ${escHtml(req.fromLocation)} â†’ ${escHtml(req.destination)}</div>
+    <div class="req-route"><i class="fa-solid fa-route"></i> ${escHtml(req.fromLocation)} → ${escHtml(req.destination)}</div>
     <div class="req-meta">
       ${req.dateTime ? `<span class="meta-chip time"><i class="fa-solid fa-clock"></i>${escHtml(req.dateTime)}</span>` : ''}
     </div>
@@ -872,15 +875,20 @@ function renderMyActivity() {
 ============================================================= */
 // Live cost preview
 function updateCostPreview() {
-  const total = parseFloat(document.getElementById('offer-fuel-cost')?.value || 300);
-  const seats = parseInt(document.getElementById('offer-seats')?.value || 3);
-  const perPerson = Math.round(total / (seats + 1));
+  const totalVal = document.getElementById('offer-fuel-cost')?.value;
+  const seatsVal = document.getElementById('offer-seats')?.value;
+  const total = parseFloat(totalVal !== undefined && totalVal !== '' ? totalVal : 300);
+  const seats = parseInt(seatsVal !== undefined && seatsVal !== '' ? seatsVal : 3);
+  const totalPeople = Math.max(1, seats + 1);
+  const perPerson = total > 0 ? Math.round(total / totalPeople) : 0;
+
   const totalEl = document.getElementById('calc-total');
   const seatsEl = document.getElementById('calc-seats');
   const ppEl    = document.getElementById('calc-per-person');
-  if (totalEl) totalEl.textContent = `â‚¹${total}`;
+
+  if (totalEl) totalEl.textContent = `₹${total}`;
   if (seatsEl) seatsEl.textContent = `${seats} passenger${seats !== 1 ? 's' : ''} + Driver`;
-  if (ppEl)    ppEl.textContent    = `â‚¹${perPerson}/person`;
+  if (ppEl)    ppEl.textContent    = total > 0 ? `₹${perPerson} / person` : 'Free Ride';
 }
 document.getElementById('offer-fuel-cost')?.addEventListener('input', updateCostPreview);
 document.getElementById('offer-seats')?.addEventListener('input', updateCostPreview);
@@ -892,13 +900,13 @@ document.getElementById('offer-ride-form')?.addEventListener('submit', async e =
   if (!currentUser) { showToast('Please verify your identity first!', 'warning'); openModal('manual-modal'); return; }
 
   const submitBtn = document.getElementById('offer-submit-btn');
-  submitBtn.innerHTML = '<div class="spinner"></div> Publishingâ€¦';
+  submitBtn.innerHTML = '<div class="spinner"></div> Publishing...';
   submitBtn.disabled = true;
 
   const vehicleType  = document.querySelector('input[name="vehicleType"]:checked')?.value || 'Car';
   const vehicleModel = document.getElementById('offer-vehicle-model')?.value?.trim();
   const vehiclePlate = document.getElementById('offer-vehicle-plate')?.value?.trim();
-  const vehicle      = `${vehicleType} â€“ ${vehicleModel} (${vehiclePlate})`;
+  const vehicle      = `${vehicleType} – ${vehicleModel} (${vehiclePlate})`;
 
   const contactPhone = document.getElementById('offer-phone')?.value?.trim() || currentUser?.phone || '';
 
@@ -941,7 +949,7 @@ document.getElementById('post-need-form')?.addEventListener('submit', async e =>
   if (!currentUser) { showToast('Please verify your identity first!', 'warning'); return; }
 
   const submitBtn = document.getElementById('need-submit-btn');
-  submitBtn.innerHTML = '<div class="spinner"></div> Postingâ€¦';
+  submitBtn.innerHTML = '<div class="spinner"></div> Posting...';
   submitBtn.disabled = true;
 
   const body = {
@@ -1002,7 +1010,7 @@ document.getElementById('verify-register')?.addEventListener('input', async e =>
   }
 });
 
-// Live phone validation â€” show real-time feedback
+// Live phone validation ” show real-time feedback
 document.getElementById('verify-phone')?.addEventListener('input', e => {
   const val = e.target.value.replace(/[^0-9]/g, '');
   const hint = document.getElementById('phone-hint');
@@ -1035,7 +1043,7 @@ document.getElementById('manual-verify-form')?.addEventListener('submit', async 
 
   if (!name) { errEl.textContent = 'Please enter your full name.'; errEl.style.display = 'block'; return; }
 
-  // Phone validation â€” must be exactly 10 digits
+  // Phone validation ” must be exactly 10 digits
   const phoneDigits = phone.replace(/[^0-9]/g, '');
   if (!phone || phoneDigits.length !== 10) {
     errEl.textContent = 'âš ï¸ Please enter a valid 10-digit mobile number.';
@@ -1044,7 +1052,7 @@ document.getElementById('manual-verify-form')?.addEventListener('submit', async 
     return;
   }
 
-  submitBtn.innerHTML = '<div class="spinner"></div> Verifyingâ€¦';
+  submitBtn.innerHTML = '<div class="spinner"></div> Verifying...';
   submitBtn.disabled = true;
 
   const { ok, data } = await apiRequest(API.verify, 'POST', { name, admissionNo: reg, role, phone: phoneDigits });
@@ -1103,7 +1111,7 @@ document.getElementById('toggle-camera-btn')?.addEventListener('click', async ()
   const port  = document.getElementById('scanner-viewport');
 
   if (!cameraRunning) {
-    setScanStatus('Starting cameraâ€¦', 'scanning');
+    setScanStatus('Starting camera...', 'scanning');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       video.srcObject = stream;
@@ -1127,7 +1135,7 @@ document.getElementById('toggle-camera-btn')?.addEventListener('click', async ()
           stopCamera();
         });
       }
-      setScanStatus('Camera live â€“ point at ID barcode', 'scanning');
+      setScanStatus('Camera live – point at ID barcode', 'scanning');
     } catch (err) {
       setScanStatus('Camera access denied', 'error');
       showToast('Camera permission denied. Use file upload instead.', 'warning');
@@ -1166,7 +1174,7 @@ fileInput?.addEventListener('change', e => handleImageFile(e.target.files[0]));
 
 function handleImageFile(file) {
   if (!file || !file.type.startsWith('image/')) { showToast('Please upload an image file.', 'error'); return; }
-  setScanStatus('Scanning barcode from imageâ€¦', 'scanning');
+  setScanStatus('Scanning barcode from image...', 'scanning');
 
   if (window.Quagga) {
     Quagga.decodeSingle({
@@ -1184,7 +1192,7 @@ function handleImageFile(file) {
       }
     });
   } else {
-    setScanStatus('Barcode library loadingâ€¦ Please enter manually.', 'error');
+    setScanStatus('Barcode library loading... Please enter manually.', 'error');
     showToast('Enter your admission number manually below.', 'info');
   }
 }
@@ -1200,7 +1208,7 @@ document.getElementById('scan-verify-btn')?.addEventListener('click', async () =
   if (!admNo)  { errEl.textContent = 'Please enter or scan your admission number.'; errEl.style.display = 'block'; return; }
 
   errEl.style.display = 'none';
-  btn.innerHTML = '<div class="spinner"></div> Verifyingâ€¦';
+  btn.innerHTML = '<div class="spinner"></div> Verifying...';
   btn.disabled = true;
 
   const { ok, data } = await apiRequest(API.barcode, 'POST', { name, barcodeData: admNo, role: 'Student' });

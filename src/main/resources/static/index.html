@@ -443,12 +443,46 @@
     .radio-card input:checked + .radio-content span { color: var(--accent-primary); }
 
     .cost-preview {
-      background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2);
-      border-radius: var(--radius-md); padding: 1rem; margin: 1rem 0;
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: var(--radius-md);
+      padding: 1.1rem;
+      margin: 1.25rem 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
     }
-    .cost-preview-title { font-size: 0.8rem; font-weight: 700; color: var(--accent-emerald); margin-bottom: 0.5rem; }
-    .cost-preview-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.84rem; color: var(--text-muted); margin-bottom: 0.3rem; }
-    .cost-preview-row strong { color: var(--accent-emerald); }
+    .cost-preview-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--accent-emerald);
+      margin-bottom: 0.65rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .cost-preview-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.4rem;
+    }
+    .cost-preview-row:last-child {
+      margin-bottom: 0;
+      padding-top: 0.4rem;
+      border-top: 1px dashed rgba(16, 185, 129, 0.2);
+    }
+    .cost-preview-row strong {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--accent-emerald);
+    }
+    #calc-per-person {
+      font-size: 1.1rem;
+      color: var(--accent-emerald);
+    }
 
     .form-actions { margin-top: 1.5rem; }
 
@@ -1045,7 +1079,7 @@
         <div class="cost-preview" id="cost-preview">
           <div class="cost-preview-title"><i class="fa-solid fa-calculator"></i> Automatic Cost Split</div>
           <div class="cost-preview-row"><span>Total Fuel Cost:</span><strong id="calc-total">₹300</strong></div>
-          <div class="cost-preview-row"><span>Per Person (<span id="calc-seats">3 passengers + Driver</span>):</span><strong id="calc-per-person">₹75/person</strong></div>
+          <div class="cost-preview-row"><span>Per Person (<span id="calc-seats">3 passengers + Driver</span>):</span><strong id="calc-per-person">₹75 / person</strong></div>
         </div>
 
         <div class="form-actions">
