@@ -1,25 +1,27 @@
-/* =============================================================
-   coRide Java Web – Frontend Application Script
+﻿/* =============================================================
+   coRide Java Web â€“ Frontend Application Script
    Connects to Spring Boot REST API at /api/*
    ============================================================= */
 
 'use strict';
 
-// ── API base ─────────────────────────────────────────────────
+// â”€â”€ API base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const API = {
-  verify:     '/api/auth/verify',
-  barcode:    '/api/auth/verify-barcode',
-  validate:   '/api/auth/validate-admission',
-  rides:      '/api/rides',
-  requests:   '/api/requests',
+  verify:       '/api/auth/verify',
+  barcode:      '/api/auth/verify-barcode',
+  validate:     '/api/auth/validate-admission',
+  rides:        '/api/rides',
+  requests:     '/api/requests',
+  joinRequests: '/api/join-requests',
 };
 
-// ── State ─────────────────────────────────────────────────────
-let currentUser = JSON.parse(sessionStorage.getItem('corideUser') || 'null');
-let allRides    = [];
-let allRequests = [];
+// â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+let currentUser     = JSON.parse(sessionStorage.getItem('corideUser') || 'null');
+let allRides        = [];
+let allRequests     = [];
+let allJoinRequests = []; // All join requests â€“ fetched fresh each refresh
 
-// ── Admission regex (mirrors Java service) ────────────────────
+// â”€â”€ Admission regex (mirrors Java service) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const ADMISSION_NO_REGEX = /^(\d{2})\/(\d{3})\/([A-Za-z]{2,3})$/;
 
 /* =============================================================
@@ -120,7 +122,7 @@ function renderUserMenu() {
         <div class="user-avatar">${initials}</div>
         <div>
           <div class="user-name">${currentUser.name}</div>
-          <div class="user-dept">${currentUser.branchCode} · ${currentUser.role}</div>
+          <div class="user-dept">${currentUser.branchCode} Â· ${currentUser.role}</div>
         </div>
       </div>
       <button class="btn btn-danger" id="logout-btn" style="padding:0.45rem 0.9rem;font-size:0.82rem;">
@@ -128,7 +130,7 @@ function renderUserMenu() {
       </button>`;
     document.getElementById('logout-btn')?.addEventListener('click', logout);
 
-    // Mobile top bar — show avatar + name
+    // Mobile top bar â€” show avatar + name
     if (mobileArea) {
       mobileArea.innerHTML = `
         <div style="display:flex;align-items:center;gap:0.5rem;">
@@ -148,7 +150,7 @@ function renderUserMenu() {
       </button>`;
     document.getElementById('hdr-verify-btn')?.addEventListener('click', () => openModal('manual-modal'));
 
-    // Mobile top bar — show verify button
+    // Mobile top bar â€” show verify button
     if (mobileArea) {
       mobileArea.innerHTML = `
         <button class="btn btn-primary" id="mobile-verify-btn" style="padding:0.4rem 0.85rem;font-size:0.8rem;">
@@ -178,7 +180,6 @@ async function loadRides(searchQuery = '') {
   let url = API.rides;
   if (searchQuery) url += `?search=${encodeURIComponent(searchQuery)}`;
 
-  const { ok, data } = await apiRequest(url);
   if (!ok) { container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-triangle-exclamation"></i><h3>Failed to load rides</h3><p>Please refresh the page.</p></div>'; return; }
 
   allRides = data || [];
@@ -191,30 +192,53 @@ function sameName(a, b) {
   return a.toString().trim().toLowerCase() === b.toString().trim().toLowerCase();
 }
 
-function updateDriverNotifications() {
-  if (!currentUser) return;
-  const myRides = allRides.filter(r => sameName(r.creatorName, currentUser.name));
-  let totalPending = 0;
-  myRides.forEach(r => {
-    if (r.pendingRequests) {
-      totalPending += r.pendingRequests.split(',').filter(p => p.trim().length > 0).length;
-    }
+/* =============================================================
+   LOAD JOIN REQUESTS (separate table, reliable)
+   Called every time we refresh rides, and on a timer
+============================================================= */
+async function loadAllJoinRequests() {
+  // We load ALL join requests and filter client-side.
+  // This avoids N+1 calls per ride while keeping it simple.
+  // For drivers: we filter where driverName === currentUser.name
+  // For passengers: we filter where passengerName === currentUser.name
+  if (!currentUser) { allJoinRequests = []; return; }
+
+  // Fetch requests for this user as driver AND as passenger
+  const driverName = encodeURIComponent(currentUser.name);
+  const [driverRes, passengerRes] = await Promise.all([
+    apiRequest(`${API.joinRequests}/driver/${driverName}`),
+    apiRequest(`${API.joinRequests}/passenger/${driverName}`)
+  ]);
+
+  const driverReqs    = driverRes.ok    ? (driverRes.data    || []) : [];
+  const passengerReqs = passengerRes.ok ? (passengerRes.data || []) : [];
+
+  // Merge and deduplicate by id
+  const seen = new Set();
+  allJoinRequests = [];
+  [...driverReqs, ...passengerReqs].forEach(r => {
+    if (!seen.has(r.id)) { seen.add(r.id); allJoinRequests.push(r); }
   });
+
+  updateDriverBadge();
+}
+
+function updateDriverBadge() {
+  if (!currentUser) return;
+  const pendingForMe = allJoinRequests.filter(
+    jr => sameName(jr.driverName, currentUser.name) && jr.status === 'PENDING'
+  ).length;
 
   const tabBadge = document.getElementById('activity-tab-badge');
   if (tabBadge) {
-    if (totalPending > 0) {
-      tabBadge.textContent = totalPending;
-      tabBadge.style.display = 'inline-block';
-    } else {
-      tabBadge.style.display = 'none';
-    }
+    tabBadge.textContent = pendingForMe;
+    tabBadge.style.display = pendingForMe > 0 ? 'inline-block' : 'none';
   }
-
-  const actCount = document.getElementById('activity-pending-count');
-  if (actCount) actCount.textContent = totalPending;
 }
 
+/* =============================================================
+   RENDER RIDES
+============================================================= */
 function renderRides(rides) {
   const container = document.getElementById('rides-container');
   const vehicleFilter = document.getElementById('filter-vehicle')?.value || 'all';
@@ -224,15 +248,12 @@ function renderRides(rides) {
   if (vehicleFilter !== 'all') filtered = filtered.filter(r => r.vehicle?.toLowerCase().includes(vehicleFilter.toLowerCase()));
   if (roleFilter !== 'all')    filtered = filtered.filter(r => r.creatorRole === roleFilter);
 
-  updateDriverNotifications();
-
   if (!filtered.length) {
     container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-car-side"></i><h3>No rides found</h3><p>Be the first to offer a ride!</p></div>';
     return;
   }
 
   container.innerHTML = filtered.map(r => rideCardHTML(r)).join('');
-  // Bind delete and join buttons
   container.querySelectorAll('.delete-ride-btn').forEach(btn => {
     btn.addEventListener('click', () => deleteRide(btn.dataset.id));
   });
@@ -241,21 +262,34 @@ function renderRides(rides) {
   });
 }
 
-function rideCardHTML(ride, showDelete = false) {
+function rideCardHTML(ride) {
   const isMine = currentUser && sameName(ride.creatorName, currentUser.name);
   const initials = ride.creatorName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
-  const isShown  = isMine || showDelete;
   const roleClass = ride.creatorRole === 'Faculty' ? ' faculty' : '';
   const isFull = ride.seats <= 0 || ride.status === 'FULL';
-  const isJoined = currentUser && ride.passengers && ride.passengers.split(',').map(p=>p.trim().toLowerCase()).includes(currentUser.name.trim().toLowerCase());
-  const isPending = currentUser && ride.pendingRequests && ride.pendingRequests.split(',').map(p=>p.trim().toLowerCase()).includes(currentUser.name.trim().toLowerCase());
-  const pendingCount = ride.pendingRequests ? ride.pendingRequests.split(',').filter(p=>p.trim().length > 0).length : 0;
+
+  // Check join request status from allJoinRequests
+  const myJR = currentUser ? allJoinRequests.find(
+    jr => jr.rideId == ride.id && sameName(jr.passengerName, currentUser.name)
+  ) : null;
+  const isAccepted = myJR?.status === 'ACCEPTED';
+  const isPending  = myJR?.status === 'PENDING';
+
+  // Count pending requests for this ride (if I am the driver)
+  const pendingCount = isMine
+    ? allJoinRequests.filter(jr => jr.rideId == ride.id && jr.status === 'PENDING').length
+    : 0;
+
+  // Check if confirmed via passengers field (legacy fallback)
+  const isConfirmedLegacy = !myJR && currentUser && ride.passengers &&
+    ride.passengers.split(',').map(p => p.trim().toLowerCase()).includes(currentUser.name.trim().toLowerCase());
+  const isJoined = isAccepted || isConfirmedLegacy;
 
   let actionBtnHTML = '';
   if (isMine) {
-    actionBtnHTML = `<button class="btn btn-secondary join-ride-btn" data-id="${ride.id}" style="flex:1;justify-content:center;font-size:0.82rem;position:relative;${pendingCount > 0 ? 'border-color:var(--accent-amber);color:var(--accent-amber);font-weight:700;' : ''}">
+    actionBtnHTML = `<button class="btn btn-secondary join-ride-btn" data-id="${ride.id}" style="flex:1;justify-content:center;font-size:0.82rem;${pendingCount > 0 ? 'border-color:var(--accent-amber);color:var(--accent-amber);font-weight:700;' : ''}">
       <i class="fa-solid fa-users-viewfinder"></i> Manage Requests (${ride.seats} seat${ride.seats !== 1 ? 's' : ''} left)
-      ${pendingCount > 0 ? `<span style="background:var(--accent-amber);color:#000;font-size:0.65rem;font-weight:800;padding:2px 7px;border-radius:10px;margin-left:6px;animation:pulse-dot 1.5s infinite;">${pendingCount} NEW</span>` : ''}
+      ${pendingCount > 0 ? `<span style="background:var(--accent-amber);color:#000;font-size:0.65rem;font-weight:800;padding:2px 7px;border-radius:10px;margin-left:6px;">${pendingCount} NEW</span>` : ''}
     </button>`;
   } else if (isJoined) {
     actionBtnHTML = `<button class="btn btn-emerald join-ride-btn" data-id="${ride.id}" style="flex:1;justify-content:center;font-size:0.82rem;">
@@ -305,58 +339,66 @@ function rideCardHTML(ride, showDelete = false) {
     ${ride.notes ? `<div class="ride-notes"><i class="fa-solid fa-note-sticky"></i> ${escHtml(ride.notes)}</div>` : ''}
     <div class="ride-card-actions">
       ${actionBtnHTML}
-      ${isShown ? `<button class="delete-ride-btn delete-btn" data-id="${ride.id}" title="Delete this ride"><i class="fa-solid fa-trash"></i></button>` : ''}
+      ${isMine ? `<button class="delete-ride-btn delete-btn" data-id="${ride.id}" title="Delete this ride"><i class="fa-solid fa-trash"></i></button>` : ''}
     </div>
   </div>`;
 }
 
-function openJoinRideModal(rideId) {
+/* =============================================================
+   JOIN RIDE MODAL  â€” uses /api/join-requests
+============================================================= */
+async function openJoinRideModal(rideId) {
   const ride = allRides.find(r => r.id == rideId);
   if (!ride) return;
 
   const modalBody = document.getElementById('join-ride-modal-body');
   const isMine = currentUser && sameName(ride.creatorName, currentUser.name);
-  const isJoined = currentUser && ride.passengers && ride.passengers.split(',').map(p=>p.trim().toLowerCase()).includes(currentUser.name.trim().toLowerCase());
-  const isPending = currentUser && ride.pendingRequests && ride.pendingRequests.split(',').map(p=>p.trim().toLowerCase()).includes(currentUser.name.trim().toLowerCase());
 
-  // Parse confirmed passengers
-  const confirmedPassengers = ride.passengers ? ride.passengers.split(',').map(p=>p.trim()).filter(p=>p.length > 0) : [];
-  // Parse pending requests
-  const pendingList = ride.pendingRequests ? ride.pendingRequests.split(',').map(p=>p.trim()).filter(p=>p.length > 0) : [];
+  // My join request for this ride
+  const myJR = currentUser ? allJoinRequests.find(
+    jr => jr.rideId == ride.id && sameName(jr.passengerName, currentUser.name)
+  ) : null;
+  const isAccepted = myJR?.status === 'ACCEPTED';
+  const isPending  = myJR?.status === 'PENDING';
+  const isConfirmedLegacy = !myJR && currentUser && ride.passengers &&
+    ride.passengers.split(',').map(p => p.trim().toLowerCase()).includes(currentUser.name.trim().toLowerCase());
+  const isJoined = isAccepted || isConfirmedLegacy;
 
-  let passengersListHTML = '';
-  if (confirmedPassengers.length > 0) {
-    passengersListHTML = confirmedPassengers.map(p => {
-      let removeBtn = '';
-      if (isMine) {
-        removeBtn = `<button class="btn btn-danger remove-confirmed-btn" data-ride-id="${ride.id}" data-passenger="${escHtml(p)}" style="padding:0.15rem 0.4rem;font-size:0.65rem;border-radius:4px;margin-left:0.3rem;" title="Remove Passenger"><i class="fa-solid fa-xmark"></i></button>`;
-      }
-      return `<span class="meta-chip" style="background:rgba(16,185,129,0.15);color:var(--accent-emerald);border:1px solid rgba(16,185,129,0.3);margin:0.2rem;display:inline-flex;align-items:center;">
-        <i class="fa-solid fa-user-check"></i> ${escHtml(p)} ${removeBtn}
-      </span>`;
-    }).join(' ');
-  } else {
-    passengersListHTML = '<span style="color:var(--text-muted);font-style:italic;font-size:0.85rem;">No confirmed co-passengers yet.</span>';
-  }
+  // Confirmed passengers from ride.passengers field
+  const confirmedPassengers = ride.passengers
+    ? ride.passengers.split(',').map(p => p.trim()).filter(p => p.length > 0)
+    : [];
 
-  // Pending requests section (visible to driver or showing note)
+  // Pending join requests for this ride (driver sees these)
+  const pendingJRs = isMine
+    ? allJoinRequests.filter(jr => jr.rideId == ride.id && jr.status === 'PENDING')
+    : [];
+
+  const passengersListHTML = confirmedPassengers.length > 0
+    ? confirmedPassengers.map(p => `
+        <span class="meta-chip" style="background:rgba(16,185,129,0.15);color:var(--accent-emerald);border:1px solid rgba(16,185,129,0.3);margin:0.2rem;display:inline-flex;align-items:center;">
+          <i class="fa-solid fa-user-check"></i> ${escHtml(p)}
+        </span>`).join(' ')
+    : '<span style="color:var(--text-muted);font-style:italic;font-size:0.85rem;">No confirmed co-passengers yet.</span>';
+
+  // Driver pending-requests section
   let pendingSectionHTML = '';
   if (isMine) {
-    if (pendingList.length > 0) {
+    if (pendingJRs.length > 0) {
       pendingSectionHTML = `
       <div style="background:rgba(245,158,11,0.08);border:1px dashed rgba(245,158,11,0.3);border-radius:10px;padding:0.85rem;margin-bottom:1rem;">
         <label style="font-weight:700;font-size:0.85rem;display:block;margin-bottom:0.5rem;color:var(--accent-amber);">
-          <i class="fa-solid fa-user-clock"></i> Pending Join Requests (${pendingList.length})
+          <i class="fa-solid fa-user-clock"></i> Pending Join Requests (${pendingJRs.length})
         </label>
         <div style="display:flex;flex-direction:column;gap:0.5rem;">
-          ${pendingList.map(p => `
+          ${pendingJRs.map(jr => `
             <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-card);padding:0.5rem 0.75rem;border-radius:8px;border:1px solid var(--border-subtle);">
-              <span style="font-size:0.85rem;font-weight:600;color:var(--text-main);"><i class="fa-solid fa-user"></i> ${escHtml(p)}</span>
+              <span style="font-size:0.85rem;font-weight:600;color:var(--text-main);"><i class="fa-solid fa-user"></i> ${escHtml(jr.passengerName)}</span>
               <div style="display:flex;gap:0.4rem;">
-                <button class="btn btn-emerald accept-passenger-btn" data-ride-id="${ride.id}" data-passenger="${escHtml(p)}" style="padding:0.35rem 0.65rem;font-size:0.75rem;">
+                <button class="btn btn-emerald accept-jr-btn" data-jr-id="${jr.id}" data-ride-id="${ride.id}" style="padding:0.35rem 0.65rem;font-size:0.75rem;">
                   <i class="fa-solid fa-check"></i> Accept
                 </button>
-                <button class="btn btn-danger decline-passenger-btn" data-ride-id="${ride.id}" data-passenger="${escHtml(p)}" style="padding:0.35rem 0.65rem;font-size:0.75rem;">
+                <button class="btn btn-danger decline-jr-btn" data-jr-id="${jr.id}" data-ride-id="${ride.id}" data-name="${escHtml(jr.passengerName)}" style="padding:0.35rem 0.65rem;font-size:0.75rem;">
                   <i class="fa-solid fa-xmark"></i> Decline
                 </button>
               </div>
@@ -367,7 +409,7 @@ function openJoinRideModal(rideId) {
     } else {
       pendingSectionHTML = `
       <div style="background:rgba(255,255,255,0.03);border-radius:10px;padding:0.75rem;margin-bottom:1rem;font-size:0.82rem;color:var(--text-muted);text-align:center;">
-        <i class="fa-solid fa-circle-info"></i> No pending join requests from students right now.
+        <i class="fa-solid fa-circle-info"></i> No pending join requests right now.
       </div>`;
     }
   }
@@ -375,7 +417,7 @@ function openJoinRideModal(rideId) {
   const phone = ride.contactPhone?.trim() || '';
   const hasPhone = phone.length > 0;
   const rawDigits = phone.replace(/[^0-9]/g, '');
-  const whatsappUrl = hasPhone ? `https://wa.me/${rawDigits}?text=${encodeURIComponent(`Hi ${ride.creatorName}, I joined your coRide offer from ${ride.fromLocation} to ${ride.destination}!`)}` : '#';
+  const whatsappUrl = hasPhone ? `https://wa.me/${rawDigits}?text=${encodeURIComponent(`Hi ${ride.creatorName}, I'd like to join your coRide from ${ride.fromLocation} to ${ride.destination}!`)}` : '#';
   const telUrl = hasPhone ? `tel:${phone}` : '#';
 
   modalBody.innerHTML = `
@@ -388,23 +430,17 @@ function openJoinRideModal(rideId) {
         </div>
       </div>
       <div class="route-display" style="margin-bottom:0.75rem;">
-        <div class="route-point">
-          <span class="route-label">Pickup</span>
-          <span class="route-value">${escHtml(ride.fromLocation)}</span>
-        </div>
+        <div class="route-point"><span class="route-label">Pickup</span><span class="route-value">${escHtml(ride.fromLocation)}</span></div>
         <div class="route-arrow"><i class="fa-solid fa-arrow-right"></i></div>
-        <div class="route-point">
-          <span class="route-label">Destination</span>
-          <span class="route-value">${escHtml(ride.destination)}</span>
-        </div>
+        <div class="route-point"><span class="route-label">Destination</span><span class="route-value">${escHtml(ride.destination)}</span></div>
       </div>
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap;font-size:0.85rem;color:var(--text-secondary);">
         <span><i class="fa-solid fa-clock" style="color:var(--accent-primary);"></i> ${escHtml(ride.dateTime)}</span>
-        <span>•</span>
+        <span>â€¢</span>
         <span><i class="fa-solid fa-car" style="color:var(--accent-emerald);"></i> ${escHtml(ride.vehicle || 'Car')}</span>
-        <span>•</span>
+        <span>â€¢</span>
         <span><i class="fa-solid fa-chair" style="color:var(--accent-amber);"></i> ${ride.seats} seat${ride.seats !== 1 ? 's' : ''} left</span>
-        ${ride.fuelCost > 0 ? `<span>•</span><span style="color:var(--accent-amber);font-weight:700;"><i class="fa-solid fa-indian-rupee-sign"></i> ${Math.round(ride.fuelCost / (ride.seats + 1))}/person (Total: ₹${ride.fuelCost})</span>` : ''}
+        ${ride.fuelCost > 0 ? `<span>â€¢</span><span style="color:var(--accent-amber);font-weight:700;"><i class="fa-solid fa-indian-rupee-sign"></i> ${Math.round(ride.fuelCost / (ride.seats + 1))}/person</span>` : ''}
       </div>
     </div>
 
@@ -414,18 +450,16 @@ function openJoinRideModal(rideId) {
       <label style="font-weight:600;font-size:0.85rem;display:block;margin-bottom:0.4rem;color:var(--text-secondary);">
         <i class="fa-solid fa-users"></i> Confirmed Passengers
       </label>
-      <div style="display:flex;flex-wrap:wrap;gap:0.3rem;">
-        ${passengersListHTML}
-      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:0.3rem;">${passengersListHTML}</div>
     </div>
 
     <div style="background:rgba(99,102,241,0.08);padding:0.85rem;border-radius:10px;border:1px dashed var(--border-card);margin-bottom:1.25rem;">
       <div style="font-weight:700;font-size:0.85rem;color:var(--accent-primary);margin-bottom:0.4rem;">
-        <i class="fa-solid fa-address-book"></i> Driver Direct Contact Info
+        <i class="fa-solid fa-address-book"></i> Driver Contact Info
       </div>
-      <div style="font-size:0.85rem;color:var(--text-main);display:flex;flex-direction:column;gap:0.3rem;">
-        <div><strong>Driver:</strong> ${escHtml(ride.creatorName)} (${escHtml(ride.creatorRole || 'Faculty/Student')})</div>
-        <div><strong>Contact Phone / WhatsApp:</strong> ${hasPhone ? `<strong style="color:var(--accent-emerald);">${escHtml(phone)}</strong>` : '<span style="color:var(--accent-amber);font-style:italic;">Not provided by driver</span>'}</div>
+      <div style="font-size:0.85rem;color:var(--text-main);">
+        <div><strong>Driver:</strong> ${escHtml(ride.creatorName)} (${escHtml(ride.creatorRole || 'Student')})</div>
+        <div><strong>Phone / WhatsApp:</strong> ${hasPhone ? `<strong style="color:var(--accent-emerald);">${escHtml(phone)}</strong>` : '<span style="color:var(--accent-amber);font-style:italic;">Not provided</span>'}</div>
       </div>
     </div>
 
@@ -439,21 +473,21 @@ function openJoinRideModal(rideId) {
         <div style="flex:1;text-align:center;padding:0.6rem;background:rgba(245,158,11,0.15);color:var(--accent-amber);border-radius:8px;font-weight:600;">
           <i class="fa-solid fa-hourglass-half"></i> Request Pending Driver Approval
         </div>
-        <button class="btn btn-danger shine-effect" style="flex:1;" id="cancel-join-btn">
-          <i class="fa-solid fa-xmark-circle"></i> Cancel Join Request
+        <button class="btn btn-danger shine-effect" style="flex:1;" id="cancel-join-btn" data-jr-id="${myJR?.id}">
+          <i class="fa-solid fa-xmark-circle"></i> Cancel Request
         </button>
       ` : ''}
       ${isJoined ? `
         <div style="flex:1;text-align:center;padding:0.6rem;background:rgba(16,185,129,0.15);color:var(--accent-emerald);border-radius:8px;font-weight:600;">
-          <i class="fa-solid fa-circle-check"></i> Driver Accepted! Your Seat is Confirmed
+          <i class="fa-solid fa-circle-check"></i> Driver Accepted! Seat Confirmed
         </div>
-        <button class="btn btn-danger shine-effect" style="flex:1;" id="cancel-join-btn">
-          <i class="fa-solid fa-xmark-circle"></i> Cancel Confirmed Seat
+        <button class="btn btn-danger shine-effect" style="flex:1;" id="cancel-join-btn" data-jr-id="${myJR?.id}">
+          <i class="fa-solid fa-xmark-circle"></i> Cancel Seat
         </button>
       ` : ''}
       ${hasPhone && (isMine || isJoined) ? `
         <a href="${whatsappUrl}" target="_blank" class="btn btn-secondary" style="justify-content:center;text-decoration:none;">
-          <i class="fa-brands fa-whatsapp" style="color:#25D366;"></i> WhatsApp Driver
+          <i class="fa-brands fa-whatsapp" style="color:#25D366;"></i> WhatsApp
         </a>
         <a href="${telUrl}" class="btn btn-secondary" style="justify-content:center;text-decoration:none;">
           <i class="fa-solid fa-phone" style="color:var(--accent-primary);"></i> Call
@@ -464,87 +498,28 @@ function openJoinRideModal(rideId) {
 
   openModal('modal-join-ride');
 
-  const confirmBtn = document.getElementById('confirm-join-btn');
-  if (confirmBtn) {
-    confirmBtn.addEventListener('click', () => confirmJoinRide(ride.id));
-  }
+  // Bind confirm join button
+  document.getElementById('confirm-join-btn')?.addEventListener('click', () => confirmJoinRide(ride.id));
+
+  // Bind cancel button
   const cancelBtn = document.getElementById('cancel-join-btn');
   if (cancelBtn) {
-    cancelBtn.addEventListener('click', () => cancelRide(ride.id));
+    cancelBtn.addEventListener('click', () => {
+      const jrId = cancelBtn.dataset.jrId;
+      cancelJoinRequest(jrId, ride.id);
+    });
   }
 
-  // Driver action listeners for accepting/declining requests
-  modalBody.querySelectorAll('.accept-passenger-btn').forEach(btn => {
-    btn.addEventListener('click', () => acceptPassenger(btn.dataset.rideId, btn.dataset.passenger));
+  // Driver: bind accept/decline buttons
+  modalBody.querySelectorAll('.accept-jr-btn').forEach(btn => {
+    btn.addEventListener('click', () => acceptJoinRequest(btn.dataset.jrId, btn.dataset.rideId));
   });
-  modalBody.querySelectorAll('.decline-passenger-btn').forEach(btn => {
-    btn.addEventListener('click', () => declinePassenger(btn.dataset.rideId, btn.dataset.passenger));
-  });
-  modalBody.querySelectorAll('.remove-confirmed-btn').forEach(btn => {
-    btn.addEventListener('click', () => removePassengerByDriver(btn.dataset.rideId, btn.dataset.passenger));
+  modalBody.querySelectorAll('.decline-jr-btn').forEach(btn => {
+    btn.addEventListener('click', () => declineJoinRequest(btn.dataset.jrId, btn.dataset.rideId, btn.dataset.name));
   });
 }
 
-async function acceptPassenger(rideId, passengerName) {
-  const { ok, data, error } = await apiRequest(`${API.rides}/${rideId}/accept-passenger`, 'POST', {
-    passengerName: passengerName
-  });
-  if (ok) {
-    showToast(data.message || `Accepted ${passengerName}!`, 'success');
-    await loadRides();
-    openJoinRideModal(rideId);
-  } else {
-    showToast(data?.error || error || 'Failed to accept passenger.', 'error');
-  }
-}
-
-async function declinePassenger(rideId, passengerName) {
-  if (!confirm(`Decline join request from ${passengerName}?`)) return;
-  const { ok, data, error } = await apiRequest(`${API.rides}/${rideId}/decline-passenger`, 'POST', {
-    passengerName: passengerName
-  });
-  if (ok) {
-    showToast(data.message || `Declined request from ${passengerName}.`, 'info');
-    await loadRides();
-    openJoinRideModal(rideId);
-  } else {
-    showToast(data?.error || error || 'Failed to decline request.', 'error');
-  }
-}
-
-async function removePassengerByDriver(rideId, passengerName) {
-  if (!confirm(`Remove ${passengerName} from your ride?`)) return;
-  const { ok, data, error } = await apiRequest(`${API.rides}/${rideId}/cancel`, 'POST', {
-    passengerName: passengerName
-  });
-  if (ok) {
-    showToast(`${passengerName} removed from ride.`, 'info');
-    await loadRides();
-    openJoinRideModal(rideId);
-  } else {
-    showToast(data?.error || error || 'Failed to remove passenger.', 'error');
-  }
-}
-
-async function cancelRide(rideId) {
-  if (!currentUser) {
-    closeModal('modal-join-ride');
-    showToast('Please verify first.', 'warning');
-    openModal('modal-verify');
-    return;
-  }
-  const { ok, data, error } = await apiRequest(`${API.rides}/${rideId}/cancel`, 'POST', {
-    passengerName: currentUser.name
-  });
-  if (ok) {
-    showToast(data.message || 'Request cancelled.', 'success');
-    closeModal('modal-join-ride');
-    loadRides();
-  } else {
-    showToast(data?.error || error || 'Failed to cancel.', 'error');
-  }
-}
-
+// Passenger sends a join request
 async function confirmJoinRide(rideId) {
   if (!currentUser) {
     closeModal('modal-join-ride');
@@ -553,16 +528,62 @@ async function confirmJoinRide(rideId) {
     return;
   }
 
-  const { ok, data, error } = await apiRequest(`${API.rides}/${rideId}/join`, 'POST', {
+  const { ok, data, error } = await apiRequest(API.joinRequests, 'POST', {
+    rideId: rideId,
     passengerName: currentUser.name
   });
 
   if (ok) {
-    showToast(data.message || 'Join request submitted! Awaiting driver approval.', 'success');
+    showToast(data.message || 'Join request sent! Waiting for driver approval.', 'success');
     closeModal('modal-join-ride');
+    await loadAllJoinRequests();
     loadRides();
   } else {
     showToast(data?.error || error || 'Failed to send join request.', 'error');
+  }
+}
+
+// Driver accepts a join request
+async function acceptJoinRequest(jrId, rideId) {
+  const { ok, data, error } = await apiRequest(`${API.joinRequests}/${jrId}/accept`, 'POST', {});
+  if (ok) {
+    showToast(data.message || 'Passenger accepted!', 'success');
+    await loadAllJoinRequests();
+    await loadRides();
+    openJoinRideModal(rideId);
+  } else {
+    showToast(data?.error || error || 'Failed to accept.', 'error');
+  }
+}
+
+// Driver declines a join request
+async function declineJoinRequest(jrId, rideId, passengerName) {
+  if (!confirm(`Decline join request from ${passengerName}?`)) return;
+  const { ok, data, error } = await apiRequest(`${API.joinRequests}/${jrId}/decline`, 'POST', {});
+  if (ok) {
+    showToast(data.message || 'Request declined.', 'info');
+    await loadAllJoinRequests();
+    await loadRides();
+    openJoinRideModal(rideId);
+  } else {
+    showToast(data?.error || error || 'Failed to decline.', 'error');
+  }
+}
+
+// Passenger cancels their own join request
+async function cancelJoinRequest(jrId, rideId) {
+  if (!jrId || jrId === 'undefined') {
+    showToast('No active join request found to cancel.', 'warning');
+    return;
+  }
+  const { ok, data, error } = await apiRequest(`${API.joinRequests}/${jrId}`, 'DELETE');
+  if (ok) {
+    showToast('Join request cancelled.', 'success');
+    closeModal('modal-join-ride');
+    await loadAllJoinRequests();
+    loadRides();
+  } else {
+    showToast(data?.error || error || 'Failed to cancel request.', 'error');
   }
 }
 
@@ -578,7 +599,7 @@ async function deleteRide(id) {
 ============================================================= */
 async function loadRequests() {
   const container = document.getElementById('requests-container');
-  container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-muted);"><div class="spinner" style="border-top-color:var(--accent-emerald);width:36px;height:36px;border-width:3px;margin:0 auto 1rem;"></div><p>Loading requests…</p></div>';
+  container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-muted);"><div class="spinner" style="border-top-color:var(--accent-emerald);width:36px;height:36px;border-width:3px;margin:0 auto 1rem;"></div><p>Loading requestsâ€¦</p></div>';
 
   const { ok, data } = await apiRequest(API.requests);
   allRequests = ok ? (data || []) : [];
@@ -625,7 +646,7 @@ async function handleRequestAction(reqId, action) {
     });
 
     if (ok) {
-      showToast(data.message || 'You accepted the ride request! 🤝', 'success');
+      showToast(data.message || 'You accepted the ride request! ðŸ¤', 'success');
       await loadRequests();
       renderMyActivity();
     } else {
@@ -690,7 +711,7 @@ function requestCardHTML(req, showDelete = false) {
         <a href="tel:${phone}" class="btn btn-secondary" style="font-size:0.78rem;padding:0.4rem 0.85rem;text-decoration:none;justify-content:center;">
           <i class="fa-solid fa-phone"></i> Call
         </a>
-      </div>` : '<div style="font-size:0.78rem;color:var(--accent-amber);">No contact number provided — reach out via campus directory.</div>'}
+      </div>` : '<div style="font-size:0.78rem;color:var(--accent-amber);">No contact number provided â€” reach out via campus directory.</div>'}
     </div>`;
   }
 
@@ -704,17 +725,17 @@ function requestCardHTML(req, showDelete = false) {
     // Requester sees nothing extra (they see contact section above if accepted)
     actionBtns = '';
   } else if (isAccepted && !iAccepted) {
-    // Another driver — already accepted by someone else
+    // Another driver â€” already accepted by someone else
     actionBtns = `<button class="btn btn-secondary" disabled style="flex:1;justify-content:center;font-size:0.82rem;opacity:0.6;cursor:not-allowed;">
       <i class="fa-solid fa-user-check"></i> Already Accepted
     </button>`;
   } else if (iAccepted) {
-    // I'm the driver who accepted — can revoke
+    // I'm the driver who accepted â€” can revoke
     actionBtns = `<button class="btn btn-danger accept-req-btn" data-action="decline" data-id="${req.id}" style="flex:1;justify-content:center;font-size:0.82rem;">
       <i class="fa-solid fa-xmark-circle"></i> Revoke Acceptance
     </button>`;
   } else {
-    // Open request — driver can accept
+    // Open request â€” driver can accept
     actionBtns = `<button class="btn btn-emerald accept-req-btn shine-effect" data-action="accept" data-id="${req.id}" style="flex:1;justify-content:center;font-size:0.82rem;">
       <i class="fa-solid fa-handshake"></i> Accept & Offer Seat
     </button>`;
@@ -731,7 +752,7 @@ function requestCardHTML(req, showDelete = false) {
       </div>
       ${statusBadge}
     </div>
-    <div class="req-route"><i class="fa-solid fa-route"></i> ${escHtml(req.fromLocation)} → ${escHtml(req.destination)}</div>
+    <div class="req-route"><i class="fa-solid fa-route"></i> ${escHtml(req.fromLocation)} â†’ ${escHtml(req.destination)}</div>
     <div class="req-meta">
       ${req.dateTime ? `<span class="meta-chip time"><i class="fa-solid fa-clock"></i>${escHtml(req.dateTime)}</span>` : ''}
     </div>
@@ -773,54 +794,50 @@ function renderMyActivity() {
   const myRides    = allRides.filter(r => sameName(r.creatorName, currentUser.name));
   const myRequests = allRequests.filter(r => sameName(r.requesterName, currentUser.name));
 
-  // Render incoming requests across all of driver's rides
-  if (pendingBlock && incomingContainer) {
-    let pendingCardsHTML = '';
-    let totalPending = 0;
+  // ── Driver: show ALL pending join requests from allJoinRequests ──────────
+  const pendingForMe = allJoinRequests.filter(
+    jr => sameName(jr.driverName, currentUser.name) && jr.status === 'PENDING'
+  );
 
-    myRides.forEach(ride => {
-      if (ride.pendingRequests) {
-        const pList = ride.pendingRequests.split(',').map(p=>p.trim()).filter(p=>p.length > 0);
-        totalPending += pList.length;
-        pList.forEach(passenger => {
-          pendingCardsHTML += `
-            <div style="background:var(--bg-card2);border:1px solid var(--border-card);border-left:4px solid var(--accent-amber);border-radius:12px;padding:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">
-              <div>
-                <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;">
-                  <span style="font-weight:700;font-size:1rem;color:#fff;"><i class="fa-solid fa-user-clock" style="color:var(--accent-amber);margin-right:4px;"></i> ${escHtml(passenger)}</span>
-                  <span style="font-size:0.72rem;background:rgba(245,158,11,0.15);color:var(--accent-amber);padding:2px 8px;border-radius:10px;font-weight:700;">Wants to Join</span>
-                </div>
-                <div style="font-size:0.82rem;color:var(--text-muted);">
-                  <i class="fa-solid fa-route"></i> <strong>${escHtml(ride.fromLocation)}</strong> → <strong>${escHtml(ride.destination)}</strong> (${escHtml(ride.dateTime || 'Scheduled')})
-                </div>
+  if (pendingBlock && incomingContainer) {
+    if (pendingForMe.length > 0) {
+      pendingBlock.style.display = 'block';
+      incomingContainer.innerHTML = pendingForMe.map(jr => {
+        const ride = allRides.find(r => r.id == jr.rideId) || {};
+        return `
+          <div style="background:var(--bg-card2);border:1px solid var(--border-card);border-left:4px solid var(--accent-amber);border-radius:12px;padding:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">
+            <div>
+              <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;">
+                <span style="font-weight:700;font-size:1rem;color:#fff;"><i class="fa-solid fa-user-clock" style="color:var(--accent-amber);margin-right:4px;"></i> ${escHtml(jr.passengerName)}</span>
+                <span style="font-size:0.72rem;background:rgba(245,158,11,0.15);color:var(--accent-amber);padding:2px 8px;border-radius:10px;font-weight:700;">Wants to Join</span>
               </div>
-              <div style="display:flex;gap:0.5rem;">
-                <button class="btn btn-emerald accept-passenger-btn shine-effect" data-ride-id="${ride.id}" data-passenger="${escHtml(passenger)}" style="font-size:0.82rem;padding:0.5rem 1rem;">
-                  <i class="fa-solid fa-check"></i> Accept Passenger
-                </button>
-                <button class="btn btn-danger decline-passenger-btn" data-ride-id="${ride.id}" data-passenger="${escHtml(passenger)}" style="font-size:0.82rem;padding:0.5rem 1rem;">
-                  <i class="fa-solid fa-xmark"></i> Decline
-                </button>
+              <div style="font-size:0.82rem;color:var(--text-muted);">
+                <i class="fa-solid fa-route"></i> <strong>${escHtml(ride.fromLocation || '')}</strong> to <strong>${escHtml(ride.destination || '')}</strong> (${escHtml(ride.dateTime || 'Scheduled')})
               </div>
             </div>
-          `;
-        });
-      }
-    });
+            <div style="display:flex;gap:0.5rem;">
+              <button class="btn btn-emerald accept-jr-act-btn shine-effect" data-jr-id="${jr.id}" data-ride-id="${jr.rideId}" style="font-size:0.82rem;padding:0.5rem 1rem;">
+                <i class="fa-solid fa-check"></i> Accept
+              </button>
+              <button class="btn btn-danger decline-jr-act-btn" data-jr-id="${jr.id}" data-ride-id="${jr.rideId}" data-name="${escHtml(jr.passengerName)}" style="font-size:0.82rem;padding:0.5rem 1rem;">
+                <i class="fa-solid fa-xmark"></i> Decline
+              </button>
+            </div>
+          </div>`;
+      }).join('');
 
-    if (totalPending > 0) {
-      pendingBlock.style.display = 'block';
-      incomingContainer.innerHTML = pendingCardsHTML;
-      // Attach listeners
-      incomingContainer.querySelectorAll('.accept-passenger-btn').forEach(btn => {
+      // Bind accept/decline buttons in activity tab
+      incomingContainer.querySelectorAll('.accept-jr-act-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
-          await acceptPassenger(btn.dataset.rideId, btn.dataset.passenger);
+          await acceptJoinRequest(btn.dataset.jrId, btn.dataset.rideId);
+          await loadAllJoinRequests();
           renderMyActivity();
         });
       });
-      incomingContainer.querySelectorAll('.decline-passenger-btn').forEach(btn => {
+      incomingContainer.querySelectorAll('.decline-jr-act-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
-          await declinePassenger(btn.dataset.rideId, btn.dataset.passenger);
+          await declineJoinRequest(btn.dataset.jrId, btn.dataset.rideId, btn.dataset.name);
+          await loadAllJoinRequests();
           renderMyActivity();
         });
       });
@@ -831,7 +848,7 @@ function renderMyActivity() {
   }
 
   offersContainer.innerHTML = myRides.length
-    ? myRides.map(r => rideCardHTML(r, true)).join('')
+    ? myRides.map(r => rideCardHTML(r)).join('')
     : '<div class="empty-state"><i class="fa-solid fa-car-side"></i><h3>No ride offers yet</h3></div>';
 
   requestsContainer.innerHTML = myRequests.length
@@ -861,9 +878,9 @@ function updateCostPreview() {
   const totalEl = document.getElementById('calc-total');
   const seatsEl = document.getElementById('calc-seats');
   const ppEl    = document.getElementById('calc-per-person');
-  if (totalEl) totalEl.textContent = `₹${total}`;
+  if (totalEl) totalEl.textContent = `â‚¹${total}`;
   if (seatsEl) seatsEl.textContent = `${seats} passenger${seats !== 1 ? 's' : ''} + Driver`;
-  if (ppEl)    ppEl.textContent    = `₹${perPerson}/person`;
+  if (ppEl)    ppEl.textContent    = `â‚¹${perPerson}/person`;
 }
 document.getElementById('offer-fuel-cost')?.addEventListener('input', updateCostPreview);
 document.getElementById('offer-seats')?.addEventListener('input', updateCostPreview);
@@ -875,13 +892,13 @@ document.getElementById('offer-ride-form')?.addEventListener('submit', async e =
   if (!currentUser) { showToast('Please verify your identity first!', 'warning'); openModal('manual-modal'); return; }
 
   const submitBtn = document.getElementById('offer-submit-btn');
-  submitBtn.innerHTML = '<div class="spinner"></div> Publishing…';
+  submitBtn.innerHTML = '<div class="spinner"></div> Publishingâ€¦';
   submitBtn.disabled = true;
 
   const vehicleType  = document.querySelector('input[name="vehicleType"]:checked')?.value || 'Car';
   const vehicleModel = document.getElementById('offer-vehicle-model')?.value?.trim();
   const vehiclePlate = document.getElementById('offer-vehicle-plate')?.value?.trim();
-  const vehicle      = `${vehicleType} – ${vehicleModel} (${vehiclePlate})`;
+  const vehicle      = `${vehicleType} â€“ ${vehicleModel} (${vehiclePlate})`;
 
   const contactPhone = document.getElementById('offer-phone')?.value?.trim() || currentUser?.phone || '';
 
@@ -906,7 +923,7 @@ document.getElementById('offer-ride-form')?.addEventListener('submit', async e =
   submitBtn.disabled = false;
 
   if (ok) {
-    showToast('Ride offer published successfully! 🚗', 'success');
+    showToast('Ride offer published successfully! ðŸš—', 'success');
     document.getElementById('offer-ride-form').reset();
     updateCostPreview();
     await loadRides();
@@ -924,7 +941,7 @@ document.getElementById('post-need-form')?.addEventListener('submit', async e =>
   if (!currentUser) { showToast('Please verify your identity first!', 'warning'); return; }
 
   const submitBtn = document.getElementById('need-submit-btn');
-  submitBtn.innerHTML = '<div class="spinner"></div> Posting…';
+  submitBtn.innerHTML = '<div class="spinner"></div> Postingâ€¦';
   submitBtn.disabled = true;
 
   const body = {
@@ -941,7 +958,7 @@ document.getElementById('post-need-form')?.addEventListener('submit', async e =>
   submitBtn.disabled = false;
 
   if (ok) {
-    showToast('Request posted! Drivers will reach out to you. 📣', 'success');
+    showToast('Request posted! Drivers will reach out to you. ðŸ“£', 'success');
     document.getElementById('post-need-form').reset();
     closeModal('post-need-modal');
     await loadRequests();
@@ -985,7 +1002,7 @@ document.getElementById('verify-register')?.addEventListener('input', async e =>
   }
 });
 
-// Live phone validation — show real-time feedback
+// Live phone validation â€” show real-time feedback
 document.getElementById('verify-phone')?.addEventListener('input', e => {
   const val = e.target.value.replace(/[^0-9]/g, '');
   const hint = document.getElementById('phone-hint');
@@ -995,11 +1012,11 @@ document.getElementById('verify-phone')?.addEventListener('input', e => {
   if (val.length === 10) {
     input.style.borderColor = 'var(--accent-emerald)';
     input.style.boxShadow = '0 0 0 2px rgba(16,185,129,0.25)';
-    if (hint) { hint.textContent = '✅ Valid 10-digit number'; hint.style.color = 'var(--accent-emerald)'; }
+    if (hint) { hint.textContent = 'âœ… Valid 10-digit number'; hint.style.color = 'var(--accent-emerald)'; }
   } else if (val.length > 0) {
     input.style.borderColor = 'var(--accent-rose)';
     input.style.boxShadow = '0 0 0 2px rgba(244,63,94,0.2)';
-    if (hint) { hint.textContent = `❌ ${val.length}/10 digits entered`; hint.style.color = 'var(--accent-rose)'; }
+    if (hint) { hint.textContent = `âŒ ${val.length}/10 digits entered`; hint.style.color = 'var(--accent-rose)'; }
   } else {
     input.style.borderColor = '';
     input.style.boxShadow = '';
@@ -1018,16 +1035,16 @@ document.getElementById('manual-verify-form')?.addEventListener('submit', async 
 
   if (!name) { errEl.textContent = 'Please enter your full name.'; errEl.style.display = 'block'; return; }
 
-  // Phone validation — must be exactly 10 digits
+  // Phone validation â€” must be exactly 10 digits
   const phoneDigits = phone.replace(/[^0-9]/g, '');
   if (!phone || phoneDigits.length !== 10) {
-    errEl.textContent = '⚠️ Please enter a valid 10-digit mobile number.';
+    errEl.textContent = 'âš ï¸ Please enter a valid 10-digit mobile number.';
     errEl.style.display = 'block';
     document.getElementById('verify-phone')?.focus();
     return;
   }
 
-  submitBtn.innerHTML = '<div class="spinner"></div> Verifying…';
+  submitBtn.innerHTML = '<div class="spinner"></div> Verifyingâ€¦';
   submitBtn.disabled = true;
 
   const { ok, data } = await apiRequest(API.verify, 'POST', { name, admissionNo: reg, role, phone: phoneDigits });
@@ -1041,7 +1058,7 @@ document.getElementById('manual-verify-form')?.addEventListener('submit', async 
     sessionStorage.setItem('corideUser', JSON.stringify(currentUser));
     closeModal('manual-modal');
     renderUserMenu();
-    showToast(`Welcome to coRide, ${currentUser.name}! ✅`, 'success');
+    showToast(`Welcome to coRide, ${currentUser.name}! âœ…`, 'success');
     document.getElementById('manual-verify-form')?.reset();
     document.getElementById('verify-dept').value = '';
   } else {
@@ -1086,7 +1103,7 @@ document.getElementById('toggle-camera-btn')?.addEventListener('click', async ()
   const port  = document.getElementById('scanner-viewport');
 
   if (!cameraRunning) {
-    setScanStatus('Starting camera…', 'scanning');
+    setScanStatus('Starting cameraâ€¦', 'scanning');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       video.srcObject = stream;
@@ -1105,12 +1122,12 @@ document.getElementById('toggle-camera-btn')?.addEventListener('click', async ()
         Quagga.onDetected(result => {
           const code = result.codeResult.code;
           fillDecodedResult(code);
-          setScanStatus('Barcode detected! ✅', 'success');
+          setScanStatus('Barcode detected! âœ…', 'success');
           showToast('Barcode scanned: ' + code, 'success');
           stopCamera();
         });
       }
-      setScanStatus('Camera live – point at ID barcode', 'scanning');
+      setScanStatus('Camera live â€“ point at ID barcode', 'scanning');
     } catch (err) {
       setScanStatus('Camera access denied', 'error');
       showToast('Camera permission denied. Use file upload instead.', 'warning');
@@ -1149,7 +1166,7 @@ fileInput?.addEventListener('change', e => handleImageFile(e.target.files[0]));
 
 function handleImageFile(file) {
   if (!file || !file.type.startsWith('image/')) { showToast('Please upload an image file.', 'error'); return; }
-  setScanStatus('Scanning barcode from image…', 'scanning');
+  setScanStatus('Scanning barcode from imageâ€¦', 'scanning');
 
   if (window.Quagga) {
     Quagga.decodeSingle({
@@ -1159,7 +1176,7 @@ function handleImageFile(file) {
     }, result => {
       if (result?.codeResult) {
         fillDecodedResult(result.codeResult.code);
-        setScanStatus('Barcode decoded from image! ✅', 'success');
+        setScanStatus('Barcode decoded from image! âœ…', 'success');
         showToast('Barcode: ' + result.codeResult.code, 'success');
       } else {
         setScanStatus('Could not decode barcode. Enter manually.', 'error');
@@ -1167,7 +1184,7 @@ function handleImageFile(file) {
       }
     });
   } else {
-    setScanStatus('Barcode library loading… Please enter manually.', 'error');
+    setScanStatus('Barcode library loadingâ€¦ Please enter manually.', 'error');
     showToast('Enter your admission number manually below.', 'info');
   }
 }
@@ -1183,7 +1200,7 @@ document.getElementById('scan-verify-btn')?.addEventListener('click', async () =
   if (!admNo)  { errEl.textContent = 'Please enter or scan your admission number.'; errEl.style.display = 'block'; return; }
 
   errEl.style.display = 'none';
-  btn.innerHTML = '<div class="spinner"></div> Verifying…';
+  btn.innerHTML = '<div class="spinner"></div> Verifyingâ€¦';
   btn.disabled = true;
 
   const { ok, data } = await apiRequest(API.barcode, 'POST', { name, barcodeData: admNo, role: 'Student' });
@@ -1197,7 +1214,7 @@ document.getElementById('scan-verify-btn')?.addEventListener('click', async () =
     closeModal('scan-modal');
     stopCamera();
     renderUserMenu();
-    showToast(`Welcome, ${currentUser.name}! Identity verified ✅`, 'success');
+    showToast(`Welcome, ${currentUser.name}! Identity verified âœ…`, 'success');
   } else {
     errEl.textContent = data?.error || 'Verification failed.';
     errEl.style.display = 'block';
@@ -1224,31 +1241,21 @@ function escHtml(str) {
   renderUserMenu();
   await Promise.all([loadRides(), loadRequests()]);
 
-  // Periodic background refresh every 6 seconds so requests update automatically in real-time
+  // Periodic background refresh every 8 seconds
   setInterval(async () => {
-    // Only refresh in background if modal is not open to avoid jarring input disruption
-    const modalJoin = document.getElementById('modal-join-ride');
-    const isModalOpen = modalJoin && modalJoin.classList.contains('open');
-
     const [ridesRes, reqsRes] = await Promise.all([
       apiRequest(API.rides),
-      apiRequest(API.requests)
+      apiRequest(API.requests),
+      loadAllJoinRequests()
     ]);
 
     if (ridesRes.ok && ridesRes.data) {
       allRides = ridesRes.data;
-      // Re-render rides tab if active
+      updateDriverBadge();
       const ridesTab = document.getElementById('rides-tab');
-      if (ridesTab && ridesTab.classList.contains('active')) {
-        renderRides(allRides);
-      } else {
-        updateDriverNotifications();
-      }
-      // Re-render activity tab if active
+      if (ridesTab && ridesTab.classList.contains('active')) renderRides(allRides);
       const actTab = document.getElementById('activity-tab');
-      if (actTab && actTab.classList.contains('active')) {
-        renderMyActivity();
-      }
+      if (actTab && actTab.classList.contains('active')) renderMyActivity();
     }
 
     if (reqsRes.ok && reqsRes.data) {
@@ -1256,9 +1263,7 @@ function escHtml(str) {
       const badge = document.getElementById('requests-count-badge');
       if (badge) badge.textContent = allRequests.length;
       const reqsTab = document.getElementById('requests-tab');
-      if (reqsTab && reqsTab.classList.contains('active')) {
-        renderRequests(allRequests);
-      }
+      if (reqsTab && reqsTab.classList.contains('active')) renderRequests(allRequests);
     }
-  }, 6000);
+  }, 8000);
 })();

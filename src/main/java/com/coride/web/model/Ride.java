@@ -18,15 +18,15 @@ public class Ride {
     private String vehicle;
     private int seats;
     private String notes;
-    private String status; // ACTIVE, FULL, COMPLETED, CANCELLED
-    private String passengers; // Comma separated list of accepted passenger names
-    private String pendingRequests; // Comma separated list of passenger names requesting to join
-    private String contactPhone; // Mobile/WhatsApp contact number
-    private double fuelCost;    // Total fuel cost in ₹
+    private String status; // ACTIVE, FULL
+    private String passengers; // Comma-separated confirmed passenger names
+    private String contactPhone;
+    private double fuelCost;
 
     public Ride() {}
 
-    public Ride(String creatorName, String creatorRole, String fromLocation, String destination, String dateTime, String vehicle, int seats, String notes) {
+    public Ride(String creatorName, String creatorRole, String fromLocation, String destination,
+                String dateTime, String vehicle, int seats, String notes) {
         this.creatorName = creatorName;
         this.creatorRole = creatorRole;
         this.fromLocation = fromLocation;
@@ -42,41 +42,38 @@ public class Ride {
     public void setId(Long id) { this.id = id; }
 
     public String getCreatorName() { return creatorName; }
-    public void setCreatorName(String creatorName) { this.creatorName = creatorName; }
+    public void setCreatorName(String v) { this.creatorName = v; }
 
     public String getCreatorRole() { return creatorRole; }
-    public void setCreatorRole(String creatorRole) { this.creatorRole = creatorRole; }
+    public void setCreatorRole(String v) { this.creatorRole = v; }
 
     public String getFromLocation() { return fromLocation; }
-    public void setFromLocation(String fromLocation) { this.fromLocation = fromLocation; }
+    public void setFromLocation(String v) { this.fromLocation = v; }
 
     public String getDestination() { return destination; }
-    public void setDestination(String destination) { this.destination = destination; }
+    public void setDestination(String v) { this.destination = v; }
 
     public String getDateTime() { return dateTime; }
-    public void setDateTime(String dateTime) { this.dateTime = dateTime; }
+    public void setDateTime(String v) { this.dateTime = v; }
 
     public String getVehicle() { return vehicle; }
-    public void setVehicle(String vehicle) { this.vehicle = vehicle; }
+    public void setVehicle(String v) { this.vehicle = v; }
 
     public int getSeats() { return seats; }
-    public void setSeats(int seats) { this.seats = seats; }
+    public void setSeats(int v) { this.seats = v; }
 
     public String getNotes() { return notes; }
-    public void setNotes(String notes) { this.notes = notes; }
+    public void setNotes(String v) { this.notes = v; }
 
     public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public void setStatus(String v) { this.status = v; }
 
     public String getPassengers() { return passengers; }
-    public void setPassengers(String passengers) { this.passengers = passengers; }
-
-    public String getPendingRequests() { return pendingRequests; }
-    public void setPendingRequests(String pendingRequests) { this.pendingRequests = pendingRequests; }
+    public void setPassengers(String v) { this.passengers = v; }
 
     public String getContactPhone() { return contactPhone; }
-    public void setContactPhone(String contactPhone) { this.contactPhone = contactPhone; }
+    public void setContactPhone(String v) { this.contactPhone = v; }
 
     public double getFuelCost() { return fuelCost; }
-    public void setFuelCost(double fuelCost) { this.fuelCost = fuelCost; }
+    public void setFuelCost(double v) { this.fuelCost = v; }
 }
