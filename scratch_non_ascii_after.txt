@@ -1,0 +1,26 @@
+JS Line 2: 'coRide Java Web – Frontend Application Script'
+JS Line 8: '// â-€â-€ API base â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€'
+JS Line 18: '// â-€â-€ State â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€'
+JS Line 22: 'let allJoinRequests = []; // All join requests – fetched fresh each refresh'
+JS Line 24: '// â-€â-€ Admission regex (mirrors Java service) â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€'
+JS Line 178: 'container.innerHTML = \'<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-muted);"><div class="spinner" style="border-top-color:var(--accent-primary);width:36px;height:36px;border-width:3px;margin:0 auto 1rem;"></div><p>Loading rides…</p></div>\';'
+JS Line 340: '${ride.fuelCost > 0 ? `<span class="meta-chip" style="background:rgba(245,158,11,0.15);color:var(--accent-amber);border:1px solid rgba(245,158,11,0.3);"><i class="fa-solid fa-indian-rupee-sign"></i>₹${perPersonCost} / person</span>` : \'\'}'
+JS Line 442: '<span>•</span>'
+JS Line 444: '<span>•</span>'
+JS Line 446: '${ride.fuelCost > 0 ? `<span>•</span><span style="color:var(--accent-amber);font-weight:700;"><i class="fa-solid fa-indian-rupee-sign"></i> ₹${perPersonCost} / person</span>` : \'\'}'
+JS Line 652: "showToast(data.message || 'You accepted the ride request! 🤝', 'success');"
+JS Line 758: '<div class="req-route"><i class="fa-solid fa-route"></i> ${escHtml(req.fromLocation)} → ${escHtml(req.destination)}</div>'
+JS Line 800: '// ── Driver: show ALL pending join requests from allJoinRequests ──────────'
+JS Line 889: 'if (totalEl) totalEl.textContent = `₹${total}`;'
+JS Line 891: "if (ppEl)    ppEl.textContent    = total > 0 ? `₹${perPerson} / person` : 'Free Ride';"
+JS Line 909: 'const vehicle      = `${vehicleType} – ${vehicleModel} (${vehiclePlate})`;'
+JS Line 934: "showToast('Ride offer published successfully! 🚗', 'success');"
+JS Line 969: "showToast('Request posted! Drivers will reach out to you. 📣', 'success');"
+JS Line 1023: "if (hint) { hint.textContent = '✅ Valid 10-digit number'; hint.style.color = 'var(--accent-emerald)'; }"
+JS Line 1027: "if (hint) { hint.textContent = `❌ ${val.length}/10 digits entered`; hint.style.color = 'var(--accent-rose)'; }"
+JS Line 1049: "errEl.textContent = '⚠️ Please enter a valid 10-digit mobile number.';"
+JS Line 1069: "showToast(`Welcome to coRide, ${currentUser.name}! ✅`, 'success');"
+JS Line 1133: "setScanStatus('Barcode detected! ✅', 'success');"
+JS Line 1138: "setScanStatus('Camera live – point at ID barcode', 'scanning');"
+JS Line 1187: "setScanStatus('Barcode decoded from image! ✅', 'success');"
+JS Line 1225: "showToast(`Welcome, ${currentUser.name}! Identity verified ✅`, 'success');"

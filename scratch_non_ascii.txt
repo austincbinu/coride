@@ -1,0 +1,53 @@
+JS Line 1: '\ufeff/* ============================================================='
+JS Line 2: 'coRide Java Web – Frontend Application Script'
+JS Line 8: '// â”€â”€ API base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€'
+JS Line 18: '// â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€'
+JS Line 22: 'let allJoinRequests = []; // All join requests – fetched fresh each refresh'
+JS Line 24: '// â”€â”€ Admission regex (mirrors Java service) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€'
+JS Line 125: '<div class="user-dept">${currentUser.branchCode} Â· ${currentUser.role}</div>'
+JS Line 133: '// Mobile top bar ” show avatar + name'
+JS Line 153: '// Mobile top bar ” show verify button'
+JS Line 178: 'container.innerHTML = \'<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-muted);"><div class="spinner" style="border-top-color:var(--accent-primary);width:36px;height:36px;border-width:3px;margin:0 auto 1rem;"></div><p>Loading rides…</p></div>\';'
+JS Line 340: '${ride.fuelCost > 0 ? `<span class="meta-chip" style="background:rgba(245,158,11,0.15);color:var(--accent-amber);border:1px solid rgba(245,158,11,0.3);"><i class="fa-solid fa-indian-rupee-sign"></i>₹${perPersonCost} / person</span>` : \'\'}'
+JS Line 351: 'JOIN RIDE MODAL  ” uses /api/join-requests'
+JS Line 442: '<span>•</span>'
+JS Line 444: '<span>•</span>'
+JS Line 446: '${ride.fuelCost > 0 ? `<span>•</span><span style="color:var(--accent-amber);font-weight:700;"><i class="fa-solid fa-indian-rupee-sign"></i> ₹${perPersonCost} / person</span>` : \'\'}'
+JS Line 652: "showToast(data.message || 'You accepted the ride request! ðŸ¤\x9d', 'success');"
+JS Line 717: '</div>` : \'<div style="font-size:0.78rem;color:var(--accent-amber);">No contact number provided ” reach out via campus directory.</div>\'}'
+JS Line 731: '// Another driver ” already accepted by someone else'
+JS Line 736: "// I'm the driver who accepted ” can revoke"
+JS Line 741: '// Open request ” driver can accept'
+JS Line 758: '<div class="req-route"><i class="fa-solid fa-route"></i> ${escHtml(req.fromLocation)} → ${escHtml(req.destination)}</div>'
+JS Line 800: '// ── Driver: show ALL pending join requests from allJoinRequests ──────────'
+JS Line 889: 'if (totalEl) totalEl.textContent = `₹${total}`;'
+JS Line 891: "if (ppEl)    ppEl.textContent    = total > 0 ? `₹${perPerson} / person` : 'Free Ride';"
+JS Line 909: 'const vehicle      = `${vehicleType} – ${vehicleModel} (${vehiclePlate})`;'
+JS Line 934: "showToast('Ride offer published successfully! ðŸš—', 'success');"
+JS Line 969: "showToast('Request posted! Drivers will reach out to you. ðŸ“£', 'success');"
+JS Line 1013: '// Live phone validation ” show real-time feedback'
+JS Line 1023: "if (hint) { hint.textContent = 'âœ… Valid 10-digit number'; hint.style.color = 'var(--accent-emerald)'; }"
+JS Line 1027: "if (hint) { hint.textContent = `â\x9dŒ ${val.length}/10 digits entered`; hint.style.color = 'var(--accent-rose)'; }"
+JS Line 1046: '// Phone validation ” must be exactly 10 digits'
+JS Line 1049: "errEl.textContent = 'âš\xa0ï¸\x8f Please enter a valid 10-digit mobile number.';"
+JS Line 1069: "showToast(`Welcome to coRide, ${currentUser.name}! âœ…`, 'success');"
+JS Line 1133: "setScanStatus('Barcode detected! âœ…', 'success');"
+JS Line 1138: "setScanStatus('Camera live – point at ID barcode', 'scanning');"
+JS Line 1187: "setScanStatus('Barcode decoded from image! âœ…', 'success');"
+JS Line 1225: "showToast(`Welcome, ${currentUser.name}! Identity verified âœ…`, 'success');"
+HTML Line 6: '<title>coRide – Student &amp; Faculty Carpool Network</title>'
+HTML Line 625: 'RESPONSIVE — FULL MOBILE OVERHAUL'
+HTML Line 628: '/* ── Tablet (768px and below) ─────────────────────────── */'
+HTML Line 652: '/* Grids → single column */'
+HTML Line 676: '/* ── Mobile (480px and below) ─────────────────────────── */'
+HTML Line 678: '/* Nav — elegant fixed bottom tab bar */'
+HTML Line 735: '/* Active state — pill highlight */'
+HTML Line 744: '/* Offer Ride button — special emerald style */'
+HTML Line 820: '/* Modal — full bottom sheet */'
+HTML Line 843: '/* User badge in nav — hidden on mobile, shown in top bar instead */'
+HTML Line 847: '/* ── Mobile top bar (shown only on phones) ──────────────── */'
+HTML Line 1065: '<label for="offer-fuel-cost"><i class="fa-solid fa-indian-rupee-sign"></i> Total Fuel Cost (₹)</label>'
+HTML Line 1081: '<div class="cost-preview-row"><span>Total Fuel Cost:</span><strong id="calc-total">₹300</strong></div>'
+HTML Line 1082: '<div class="cost-preview-row"><span>Per Person (<span id="calc-seats">3 passengers + Driver</span>):</span><strong id="calc-per-person">₹75 / person</strong></div>'
+HTML Line 1151: '<div class="decoded-no" id="decoded-no">—</div>'
+HTML Line 1160: '<small>Format: YY/NNN/BRANCH — e.g. 25/033/CS or 25/033/CSE</small>'

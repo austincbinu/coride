@@ -1,11 +1,11 @@
-﻿/* =============================================================
+/* =============================================================
    coRide Java Web – Frontend Application Script
    Connects to Spring Boot REST API at /api/*
    ============================================================= */
 
 'use strict';
 
-// â”€â”€ API base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â-€â-€ API base â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€
 const API = {
   verify:       '/api/auth/verify',
   barcode:      '/api/auth/verify-barcode',
@@ -15,13 +15,13 @@ const API = {
   joinRequests: '/api/join-requests',
 };
 
-// â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â-€â-€ State â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€
 let currentUser     = JSON.parse(sessionStorage.getItem('corideUser') || 'null');
 let allRides        = [];
 let allRequests     = [];
 let allJoinRequests = []; // All join requests – fetched fresh each refresh
 
-// â”€â”€ Admission regex (mirrors Java service) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â-€â-€ Admission regex (mirrors Java service) â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€
 const ADMISSION_NO_REGEX = /^(\d{2})\/(\d{3})\/([A-Za-z]{2,3})$/;
 
 /* =============================================================
@@ -122,7 +122,7 @@ function renderUserMenu() {
         <div class="user-avatar">${initials}</div>
         <div>
           <div class="user-name">${currentUser.name}</div>
-          <div class="user-dept">${currentUser.branchCode} Â· ${currentUser.role}</div>
+          <div class="user-dept">${currentUser.branchCode} &bull; ${currentUser.role}</div>
         </div>
       </div>
       <button class="btn btn-danger" id="logout-btn" style="padding:0.45rem 0.9rem;font-size:0.82rem;">
@@ -130,7 +130,7 @@ function renderUserMenu() {
       </button>`;
     document.getElementById('logout-btn')?.addEventListener('click', logout);
 
-    // Mobile top bar ” show avatar + name
+    // Mobile top bar - show avatar + name
     if (mobileArea) {
       mobileArea.innerHTML = `
         <div style="display:flex;align-items:center;gap:0.5rem;">
@@ -150,7 +150,7 @@ function renderUserMenu() {
       </button>`;
     document.getElementById('hdr-verify-btn')?.addEventListener('click', () => openModal('manual-modal'));
 
-    // Mobile top bar ” show verify button
+    // Mobile top bar - show verify button
     if (mobileArea) {
       mobileArea.innerHTML = `
         <button class="btn btn-primary" id="mobile-verify-btn" style="padding:0.4rem 0.85rem;font-size:0.8rem;">
@@ -348,7 +348,7 @@ function rideCardHTML(ride) {
 }
 
 /* =============================================================
-   JOIN RIDE MODAL  ” uses /api/join-requests
+   JOIN RIDE MODAL  - uses /api/join-requests
 ============================================================= */
 async function openJoinRideModal(rideId) {
   const ride = allRides.find(r => r.id == rideId);
@@ -649,7 +649,7 @@ async function handleRequestAction(reqId, action) {
     });
 
     if (ok) {
-      showToast(data.message || 'You accepted the ride request! ðŸ¤', 'success');
+      showToast(data.message || 'You accepted the ride request! 🤝', 'success');
       await loadRequests();
       renderMyActivity();
     } else {
@@ -714,7 +714,7 @@ function requestCardHTML(req, showDelete = false) {
         <a href="tel:${phone}" class="btn btn-secondary" style="font-size:0.78rem;padding:0.4rem 0.85rem;text-decoration:none;justify-content:center;">
           <i class="fa-solid fa-phone"></i> Call
         </a>
-      </div>` : '<div style="font-size:0.78rem;color:var(--accent-amber);">No contact number provided ” reach out via campus directory.</div>'}
+      </div>` : '<div style="font-size:0.78rem;color:var(--accent-amber);">No contact number provided - reach out via campus directory.</div>'}
     </div>`;
   }
 
@@ -728,17 +728,17 @@ function requestCardHTML(req, showDelete = false) {
     // Requester sees nothing extra (they see contact section above if accepted)
     actionBtns = '';
   } else if (isAccepted && !iAccepted) {
-    // Another driver ” already accepted by someone else
+    // Another driver - already accepted by someone else
     actionBtns = `<button class="btn btn-secondary" disabled style="flex:1;justify-content:center;font-size:0.82rem;opacity:0.6;cursor:not-allowed;">
       <i class="fa-solid fa-user-check"></i> Already Accepted
     </button>`;
   } else if (iAccepted) {
-    // I'm the driver who accepted ” can revoke
+    // I'm the driver who accepted - can revoke
     actionBtns = `<button class="btn btn-danger accept-req-btn" data-action="decline" data-id="${req.id}" style="flex:1;justify-content:center;font-size:0.82rem;">
       <i class="fa-solid fa-xmark-circle"></i> Revoke Acceptance
     </button>`;
   } else {
-    // Open request ” driver can accept
+    // Open request - driver can accept
     actionBtns = `<button class="btn btn-emerald accept-req-btn shine-effect" data-action="accept" data-id="${req.id}" style="flex:1;justify-content:center;font-size:0.82rem;">
       <i class="fa-solid fa-handshake"></i> Accept & Offer Seat
     </button>`;
@@ -931,7 +931,7 @@ document.getElementById('offer-ride-form')?.addEventListener('submit', async e =
   submitBtn.disabled = false;
 
   if (ok) {
-    showToast('Ride offer published successfully! ðŸš—', 'success');
+    showToast('Ride offer published successfully! 🚗', 'success');
     document.getElementById('offer-ride-form').reset();
     updateCostPreview();
     await loadRides();
@@ -966,7 +966,7 @@ document.getElementById('post-need-form')?.addEventListener('submit', async e =>
   submitBtn.disabled = false;
 
   if (ok) {
-    showToast('Request posted! Drivers will reach out to you. ðŸ“£', 'success');
+    showToast('Request posted! Drivers will reach out to you. 📣', 'success');
     document.getElementById('post-need-form').reset();
     closeModal('post-need-modal');
     await loadRequests();
@@ -1010,7 +1010,7 @@ document.getElementById('verify-register')?.addEventListener('input', async e =>
   }
 });
 
-// Live phone validation ” show real-time feedback
+// Live phone validation - show real-time feedback
 document.getElementById('verify-phone')?.addEventListener('input', e => {
   const val = e.target.value.replace(/[^0-9]/g, '');
   const hint = document.getElementById('phone-hint');
@@ -1020,11 +1020,11 @@ document.getElementById('verify-phone')?.addEventListener('input', e => {
   if (val.length === 10) {
     input.style.borderColor = 'var(--accent-emerald)';
     input.style.boxShadow = '0 0 0 2px rgba(16,185,129,0.25)';
-    if (hint) { hint.textContent = 'âœ… Valid 10-digit number'; hint.style.color = 'var(--accent-emerald)'; }
+    if (hint) { hint.textContent = '✅ Valid 10-digit number'; hint.style.color = 'var(--accent-emerald)'; }
   } else if (val.length > 0) {
     input.style.borderColor = 'var(--accent-rose)';
     input.style.boxShadow = '0 0 0 2px rgba(244,63,94,0.2)';
-    if (hint) { hint.textContent = `âŒ ${val.length}/10 digits entered`; hint.style.color = 'var(--accent-rose)'; }
+    if (hint) { hint.textContent = `❌ ${val.length}/10 digits entered`; hint.style.color = 'var(--accent-rose)'; }
   } else {
     input.style.borderColor = '';
     input.style.boxShadow = '';
@@ -1043,10 +1043,10 @@ document.getElementById('manual-verify-form')?.addEventListener('submit', async 
 
   if (!name) { errEl.textContent = 'Please enter your full name.'; errEl.style.display = 'block'; return; }
 
-  // Phone validation ” must be exactly 10 digits
+  // Phone validation - must be exactly 10 digits
   const phoneDigits = phone.replace(/[^0-9]/g, '');
   if (!phone || phoneDigits.length !== 10) {
-    errEl.textContent = 'âš ï¸ Please enter a valid 10-digit mobile number.';
+    errEl.textContent = '⚠️ Please enter a valid 10-digit mobile number.';
     errEl.style.display = 'block';
     document.getElementById('verify-phone')?.focus();
     return;
@@ -1066,7 +1066,7 @@ document.getElementById('manual-verify-form')?.addEventListener('submit', async 
     sessionStorage.setItem('corideUser', JSON.stringify(currentUser));
     closeModal('manual-modal');
     renderUserMenu();
-    showToast(`Welcome to coRide, ${currentUser.name}! âœ…`, 'success');
+    showToast(`Welcome to coRide, ${currentUser.name}! ✅`, 'success');
     document.getElementById('manual-verify-form')?.reset();
     document.getElementById('verify-dept').value = '';
   } else {
@@ -1130,7 +1130,7 @@ document.getElementById('toggle-camera-btn')?.addEventListener('click', async ()
         Quagga.onDetected(result => {
           const code = result.codeResult.code;
           fillDecodedResult(code);
-          setScanStatus('Barcode detected! âœ…', 'success');
+          setScanStatus('Barcode detected! ✅', 'success');
           showToast('Barcode scanned: ' + code, 'success');
           stopCamera();
         });
@@ -1184,7 +1184,7 @@ function handleImageFile(file) {
     }, result => {
       if (result?.codeResult) {
         fillDecodedResult(result.codeResult.code);
-        setScanStatus('Barcode decoded from image! âœ…', 'success');
+        setScanStatus('Barcode decoded from image! ✅', 'success');
         showToast('Barcode: ' + result.codeResult.code, 'success');
       } else {
         setScanStatus('Could not decode barcode. Enter manually.', 'error');
@@ -1222,7 +1222,7 @@ document.getElementById('scan-verify-btn')?.addEventListener('click', async () =
     closeModal('scan-modal');
     stopCamera();
     renderUserMenu();
-    showToast(`Welcome, ${currentUser.name}! Identity verified âœ…`, 'success');
+    showToast(`Welcome, ${currentUser.name}! Identity verified ✅`, 'success');
   } else {
     errEl.textContent = data?.error || 'Verification failed.';
     errEl.style.display = 'block';
