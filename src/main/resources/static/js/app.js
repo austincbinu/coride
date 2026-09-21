@@ -371,8 +371,14 @@ function rideCardHTML(ride) {
    JOIN RIDE MODAL  - uses /api/join-requests
 ============================================================= */
 async function openJoinRideModal(rideId) {
-  const ride = allRides.find(r => r.id == rideId);
+  const ride = allRides.find(r => String(r.id) === String(rideId));
   if (!ride) return;
+
+  const modalBody = document.getElementById('join-ride-modal-body');
+  if (modalBody) {
+    modalBody.innerHTML = '<div style="text-align:center;padding:2.5rem;color:var(--text-muted);"><div class="spinner" style="border-top-color:var(--accent-primary);width:36px;height:36px;border-width:3px;margin:0 auto 0.75rem;"></div><p style="font-weight:600;">Loading ride & request details...</p></div>';
+  }
+  openModal('modal-join-ride');
 
   // Fetch real-time join requests for this specific ride directly from server
   const rideRequestsRes = await apiRequest(`${API.joinRequests}/ride/${ride.id}`);
@@ -384,8 +390,6 @@ async function openJoinRideModal(rideId) {
     if (idx >= 0) allJoinRequests[idx] = jr;
     else allJoinRequests.push(jr);
   });
-
-  const modalBody = document.getElementById('join-ride-modal-body');
   const isMine = currentUser && sameName(ride.creatorName, currentUser.name);
 
   // My join request for this ride
@@ -555,8 +559,6 @@ async function openJoinRideModal(rideId) {
       ${actionButtonsHTML}
     </div>
   `;
-
-  openModal('modal-join-ride');
 
   // Bind verify now button for unverified users
   document.getElementById('modal-verify-now-btn')?.addEventListener('click', () => {
