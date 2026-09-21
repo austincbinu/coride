@@ -876,6 +876,7 @@
       </button>
       <button class="nav-btn" id="tab-activity-btn" data-tab="activity-tab">
         <i class="fa-solid fa-route"></i><span>My Activity</span>
+        <span class="badge-count" id="activity-tab-badge" style="display:none;background:var(--accent-amber);color:#000;">0</span>
       </button>
     </nav>
 
@@ -1065,6 +1066,11 @@
       </div>
     </div>
     <div class="activity-sections">
+      <div class="activity-block" id="driver-pending-block" style="display:none;">
+        <h3 style="color:var(--accent-amber);"><i class="fa-solid fa-bell"></i> Incoming Ride Join Requests <span class="badge-count" id="activity-pending-count" style="background:var(--accent-amber);color:#000;font-size:0.75rem;padding:2px 8px;border-radius:12px;margin-left:6px;">0</span></h3>
+        <div id="my-incoming-requests-container" style="display:flex;flex-direction:column;gap:0.75rem;margin-bottom:1.5rem;">
+        </div>
+      </div>
       <div class="activity-block">
         <h3><i class="fa-solid fa-car"></i> My Posted Ride Offers</h3>
         <div class="rides-grid" id="my-offers-container">

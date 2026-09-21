@@ -185,6 +185,36 @@ async function loadRides(searchQuery = '') {
   renderRides(allRides);
 }
 
+// Helper: normalize name for safe comparison (case-insensitive and trimmed)
+function sameName(a, b) {
+  if (!a || !b) return false;
+  return a.toString().trim().toLowerCase() === b.toString().trim().toLowerCase();
+}
+
+function updateDriverNotifications() {
+  if (!currentUser) return;
+  const myRides = allRides.filter(r => sameName(r.creatorName, currentUser.name));
+  let totalPending = 0;
+  myRides.forEach(r => {
+    if (r.pendingRequests) {
+      totalPending += r.pendingRequests.split(',').filter(p => p.trim().length > 0).length;
+    }
+  });
+
+  const tabBadge = document.getElementById('activity-tab-badge');
+  if (tabBadge) {
+    if (totalPending > 0) {
+      tabBadge.textContent = totalPending;
+      tabBadge.style.display = 'inline-block';
+    } else {
+      tabBadge.style.display = 'none';
+    }
+  }
+
+  const actCount = document.getElementById('activity-pending-count');
+  if (actCount) actCount.textContent = totalPending;
+}
+
 function renderRides(rides) {
   const container = document.getElementById('rides-container');
   const vehicleFilter = document.getElementById('filter-vehicle')?.value || 'all';
@@ -193,6 +223,8 @@ function renderRides(rides) {
   let filtered = rides;
   if (vehicleFilter !== 'all') filtered = filtered.filter(r => r.vehicle?.toLowerCase().includes(vehicleFilter.toLowerCase()));
   if (roleFilter !== 'all')    filtered = filtered.filter(r => r.creatorRole === roleFilter);
+
+  updateDriverNotifications();
 
   if (!filtered.length) {
     container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-car-side"></i><h3>No rides found</h3><p>Be the first to offer a ride!</p></div>';
@@ -210,27 +242,27 @@ function renderRides(rides) {
 }
 
 function rideCardHTML(ride, showDelete = false) {
-  const isMine = currentUser && ride.creatorName === currentUser.name;
+  const isMine = currentUser && sameName(ride.creatorName, currentUser.name);
   const initials = ride.creatorName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
   const isShown  = isMine || showDelete;
   const roleClass = ride.creatorRole === 'Faculty' ? ' faculty' : '';
   const isFull = ride.seats <= 0 || ride.status === 'FULL';
-  const isJoined = currentUser && ride.passengers && ride.passengers.split(',').map(p=>p.trim()).includes(currentUser.name);
-  const isPending = currentUser && ride.pendingRequests && ride.pendingRequests.split(',').map(p=>p.trim()).includes(currentUser.name);
+  const isJoined = currentUser && ride.passengers && ride.passengers.split(',').map(p=>p.trim().toLowerCase()).includes(currentUser.name.trim().toLowerCase());
+  const isPending = currentUser && ride.pendingRequests && ride.pendingRequests.split(',').map(p=>p.trim().toLowerCase()).includes(currentUser.name.trim().toLowerCase());
   const pendingCount = ride.pendingRequests ? ride.pendingRequests.split(',').filter(p=>p.trim().length > 0).length : 0;
 
   let actionBtnHTML = '';
   if (isMine) {
-    actionBtnHTML = `<button class="btn btn-secondary join-ride-btn" data-id="${ride.id}" style="flex:1;justify-content:center;font-size:0.82rem;position:relative;">
+    actionBtnHTML = `<button class="btn btn-secondary join-ride-btn" data-id="${ride.id}" style="flex:1;justify-content:center;font-size:0.82rem;position:relative;${pendingCount > 0 ? 'border-color:var(--accent-amber);color:var(--accent-amber);font-weight:700;' : ''}">
       <i class="fa-solid fa-users-viewfinder"></i> Manage Requests (${ride.seats} seat${ride.seats !== 1 ? 's' : ''} left)
-      ${pendingCount > 0 ? `<span style="background:var(--accent-amber);color:#000;font-size:0.65rem;font-weight:800;padding:1px 6px;border-radius:10px;margin-left:5px;">${pendingCount} new</span>` : ''}
+      ${pendingCount > 0 ? `<span style="background:var(--accent-amber);color:#000;font-size:0.65rem;font-weight:800;padding:2px 7px;border-radius:10px;margin-left:6px;animation:pulse-dot 1.5s infinite;">${pendingCount} NEW</span>` : ''}
     </button>`;
   } else if (isJoined) {
     actionBtnHTML = `<button class="btn btn-emerald join-ride-btn" data-id="${ride.id}" style="flex:1;justify-content:center;font-size:0.82rem;">
       <i class="fa-solid fa-circle-check"></i> Seat Confirmed (View)
     </button>`;
   } else if (isPending) {
-    actionBtnHTML = `<button class="btn btn-secondary join-ride-btn" data-id="${ride.id}" style="flex:1;justify-content:center;font-size:0.82rem;color:var(--accent-amber);border-color:rgba(245,158,11,0.4);">
+    actionBtnHTML = `<button class="btn btn-secondary join-ride-btn" data-id="${ride.id}" style="flex:1;justify-content:center;font-size:0.82rem;color:var(--accent-amber);border-color:rgba(245,158,11,0.5);">
       <i class="fa-solid fa-clock"></i> Request Pending (View)
     </button>`;
   } else if (isFull) {
@@ -283,9 +315,9 @@ function openJoinRideModal(rideId) {
   if (!ride) return;
 
   const modalBody = document.getElementById('join-ride-modal-body');
-  const isMine = currentUser && ride.creatorName === currentUser.name;
-  const isJoined = currentUser && ride.passengers && ride.passengers.split(',').map(p=>p.trim()).includes(currentUser.name);
-  const isPending = currentUser && ride.pendingRequests && ride.pendingRequests.split(',').map(p=>p.trim()).includes(currentUser.name);
+  const isMine = currentUser && sameName(ride.creatorName, currentUser.name);
+  const isJoined = currentUser && ride.passengers && ride.passengers.split(',').map(p=>p.trim().toLowerCase()).includes(currentUser.name.trim().toLowerCase());
+  const isPending = currentUser && ride.pendingRequests && ride.pendingRequests.split(',').map(p=>p.trim().toLowerCase()).includes(currentUser.name.trim().toLowerCase());
 
   // Parse confirmed passengers
   const confirmedPassengers = ride.passengers ? ride.passengers.split(',').map(p=>p.trim()).filter(p=>p.length > 0) : [];
@@ -554,11 +586,17 @@ async function loadRequests() {
   const badge = document.getElementById('requests-count-badge');
   if (badge) badge.textContent = allRequests.length;
 
-  if (!allRequests.length) {
+  renderRequests(allRequests);
+}
+
+function renderRequests(requests) {
+  const container = document.getElementById('requests-container');
+  if (!container) return;
+  if (!requests.length) {
     container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-hands-holding"></i><h3>No ride requests yet</h3><p>Post your travel need to find a driver!</p></div>';
     return;
   }
-  container.innerHTML = allRequests.map(r => requestCardHTML(r)).join('');
+  container.innerHTML = requests.map(r => requestCardHTML(r)).join('');
   container.querySelectorAll('.delete-req-btn').forEach(btn => {
     btn.addEventListener('click', () => deleteRequest(btn.dataset.id));
   });
@@ -720,17 +758,77 @@ async function deleteRequest(id) {
 function renderMyActivity() {
   const offersContainer   = document.getElementById('my-offers-container');
   const requestsContainer = document.getElementById('my-requests-container');
+  const pendingBlock      = document.getElementById('driver-pending-block');
+  const incomingContainer = document.getElementById('my-incoming-requests-container');
   if (!offersContainer || !requestsContainer) return;
 
   if (!currentUser) {
     const msg = '<div class="empty-state"><i class="fa-solid fa-user-lock"></i><h3>Verify first</h3><p>Login to view your activity.</p></div>';
     offersContainer.innerHTML = msg;
     requestsContainer.innerHTML = msg;
+    if (pendingBlock) pendingBlock.style.display = 'none';
     return;
   }
 
-  const myRides    = allRides.filter(r => r.creatorName === currentUser.name);
-  const myRequests = allRequests.filter(r => r.requesterName === currentUser.name);
+  const myRides    = allRides.filter(r => sameName(r.creatorName, currentUser.name));
+  const myRequests = allRequests.filter(r => sameName(r.requesterName, currentUser.name));
+
+  // Render incoming requests across all of driver's rides
+  if (pendingBlock && incomingContainer) {
+    let pendingCardsHTML = '';
+    let totalPending = 0;
+
+    myRides.forEach(ride => {
+      if (ride.pendingRequests) {
+        const pList = ride.pendingRequests.split(',').map(p=>p.trim()).filter(p=>p.length > 0);
+        totalPending += pList.length;
+        pList.forEach(passenger => {
+          pendingCardsHTML += `
+            <div style="background:var(--bg-card2);border:1px solid var(--border-card);border-left:4px solid var(--accent-amber);border-radius:12px;padding:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;">
+              <div>
+                <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem;">
+                  <span style="font-weight:700;font-size:1rem;color:#fff;"><i class="fa-solid fa-user-clock" style="color:var(--accent-amber);margin-right:4px;"></i> ${escHtml(passenger)}</span>
+                  <span style="font-size:0.72rem;background:rgba(245,158,11,0.15);color:var(--accent-amber);padding:2px 8px;border-radius:10px;font-weight:700;">Wants to Join</span>
+                </div>
+                <div style="font-size:0.82rem;color:var(--text-muted);">
+                  <i class="fa-solid fa-route"></i> <strong>${escHtml(ride.fromLocation)}</strong> → <strong>${escHtml(ride.destination)}</strong> (${escHtml(ride.dateTime || 'Scheduled')})
+                </div>
+              </div>
+              <div style="display:flex;gap:0.5rem;">
+                <button class="btn btn-emerald accept-passenger-btn shine-effect" data-ride-id="${ride.id}" data-passenger="${escHtml(passenger)}" style="font-size:0.82rem;padding:0.5rem 1rem;">
+                  <i class="fa-solid fa-check"></i> Accept Passenger
+                </button>
+                <button class="btn btn-danger decline-passenger-btn" data-ride-id="${ride.id}" data-passenger="${escHtml(passenger)}" style="font-size:0.82rem;padding:0.5rem 1rem;">
+                  <i class="fa-solid fa-xmark"></i> Decline
+                </button>
+              </div>
+            </div>
+          `;
+        });
+      }
+    });
+
+    if (totalPending > 0) {
+      pendingBlock.style.display = 'block';
+      incomingContainer.innerHTML = pendingCardsHTML;
+      // Attach listeners
+      incomingContainer.querySelectorAll('.accept-passenger-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          await acceptPassenger(btn.dataset.rideId, btn.dataset.passenger);
+          renderMyActivity();
+        });
+      });
+      incomingContainer.querySelectorAll('.decline-passenger-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          await declinePassenger(btn.dataset.rideId, btn.dataset.passenger);
+          renderMyActivity();
+        });
+      });
+    } else {
+      pendingBlock.style.display = 'none';
+      incomingContainer.innerHTML = '';
+    }
+  }
 
   offersContainer.innerHTML = myRides.length
     ? myRides.map(r => rideCardHTML(r, true)).join('')
@@ -740,9 +838,12 @@ function renderMyActivity() {
     ? myRequests.map(r => requestCardHTML(r, true)).join('')
     : '<div class="empty-state"><i class="fa-solid fa-hands-holding"></i><h3>No requests yet</h3></div>';
 
-  // Bind delete buttons in my-activity
+  // Bind delete and manage buttons in my-activity
   offersContainer.querySelectorAll('.delete-ride-btn').forEach(btn => {
     btn.addEventListener('click', () => deleteRide(btn.dataset.id));
+  });
+  offersContainer.querySelectorAll('.join-ride-btn').forEach(btn => {
+    btn.addEventListener('click', () => openJoinRideModal(btn.dataset.id));
   });
   requestsContainer.querySelectorAll('.delete-req-btn').forEach(btn => {
     btn.addEventListener('click', () => deleteRequest(btn.dataset.id));
@@ -1117,9 +1218,47 @@ function escHtml(str) {
 }
 
 /* =============================================================
-   INITIAL LOAD
+   INITIAL LOAD & LIVE SYNC
 ============================================================= */
 (async function init() {
   renderUserMenu();
   await Promise.all([loadRides(), loadRequests()]);
+
+  // Periodic background refresh every 6 seconds so requests update automatically in real-time
+  setInterval(async () => {
+    // Only refresh in background if modal is not open to avoid jarring input disruption
+    const modalJoin = document.getElementById('modal-join-ride');
+    const isModalOpen = modalJoin && modalJoin.classList.contains('open');
+
+    const [ridesRes, reqsRes] = await Promise.all([
+      apiRequest(API.rides),
+      apiRequest(API.requests)
+    ]);
+
+    if (ridesRes.ok && ridesRes.data) {
+      allRides = ridesRes.data;
+      // Re-render rides tab if active
+      const ridesTab = document.getElementById('rides-tab');
+      if (ridesTab && ridesTab.classList.contains('active')) {
+        renderRides(allRides);
+      } else {
+        updateDriverNotifications();
+      }
+      // Re-render activity tab if active
+      const actTab = document.getElementById('activity-tab');
+      if (actTab && actTab.classList.contains('active')) {
+        renderMyActivity();
+      }
+    }
+
+    if (reqsRes.ok && reqsRes.data) {
+      allRequests = reqsRes.data;
+      const badge = document.getElementById('requests-count-badge');
+      if (badge) badge.textContent = allRequests.length;
+      const reqsTab = document.getElementById('requests-tab');
+      if (reqsTab && reqsTab.classList.contains('active')) {
+        renderRequests(allRequests);
+      }
+    }
+  }, 6000);
 })();
