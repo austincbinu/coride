@@ -176,16 +176,16 @@ function logout() {
 async function loadRides(searchQuery = '') {
   const container = document.getElementById('rides-container');
   if (!container) return;
-  container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-muted);"><div class="spinner" style="border-top-color:var(--accent-primary);width:36px;height:36px;border-width:3px;margin:0 auto 1rem;"></div><p>Loading rides...</p></div>';
+
+  if (!allRides || allRides.length === 0) {
+    container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-muted);"><div class="spinner" style="border-top-color:var(--accent-primary);width:36px;height:36px;border-width:3px;margin:0 auto 1rem;"></div><p>Loading rides...</p></div>';
+  }
 
   let url = API.rides;
   if (searchQuery) url += `?search=${encodeURIComponent(searchQuery)}`;
 
   try {
-    const [ridesRes] = await Promise.all([
-      apiRequest(url),
-      loadAllJoinRequests()
-    ]);
+    const ridesRes = await apiRequest(url);
 
     if (!ridesRes || !ridesRes.ok) {
       container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-triangle-exclamation"></i><h3>Failed to load rides</h3><p>Please refresh the page.</p></div>';
@@ -194,6 +194,12 @@ async function loadRides(searchQuery = '') {
 
     allRides = ridesRes.data || [];
     renderRides(allRides);
+
+    // Fetch join requests asynchronously in background
+    loadAllJoinRequests().then(() => {
+      renderRides(allRides);
+    }).catch(e => console.warn('Background sync issue:', e));
+
   } catch (err) {
     console.error('Error loading rides:', err);
     container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-triangle-exclamation"></i><h3>Failed to load rides</h3><p>Please check your connection and refresh.</p></div>';
