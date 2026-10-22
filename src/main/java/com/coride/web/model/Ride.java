@@ -1,6 +1,7 @@
 package com.coride.web.model;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "rides")
@@ -21,7 +22,8 @@ public class Ride {
     private String status; // ACTIVE, FULL
     private String passengers; // Comma-separated confirmed passenger names
     private String contactPhone;
-    private double fuelCost;
+    @Column(name = "fuel_cost", precision = 10, scale = 2)
+    private BigDecimal fuelCost = BigDecimal.ZERO;
 
     public Ride() {}
 
@@ -74,6 +76,7 @@ public class Ride {
     public String getContactPhone() { return contactPhone; }
     public void setContactPhone(String v) { this.contactPhone = v; }
 
-    public double getFuelCost() { return fuelCost; }
-    public void setFuelCost(double v) { this.fuelCost = v; }
+    public double getFuelCost() { return fuelCost != null ? fuelCost.doubleValue() : 0.0; }
+    public void setFuelCost(double v) { this.fuelCost = BigDecimal.valueOf(v); }
+    public void setFuelCost(BigDecimal v) { this.fuelCost = v; }
 }
