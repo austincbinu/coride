@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>coRide – Student &amp; Faculty Carpool Network</title>
-  <meta name="description" content="Campus-verified peer ride-sharing. Scan your ID barcode or enter your register number to share rides with fellow students and faculty.">
+  <meta name="description" content="Campus-verified peer ride-sharing. Verify your official college register number to share rides with fellow students and faculty.">
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,8 +14,7 @@
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  <!-- Quagga2 Barcode Scanner -->
-  <script src="https://unpkg.com/@ericblade/quagga2/dist/quagga.min.js"></script>
+
 
   <style>
     /* ============================================================
@@ -528,59 +527,7 @@
     .close-modal-btn:hover { color: var(--text-main); border-color: var(--accent-rose); }
     .modal-body { padding: 1.5rem; }
 
-    /* Scanner */
-    .scanner-viewport {
-      background: #000; border-radius: var(--radius-lg); overflow: hidden;
-      position: relative; min-height: 200px; margin-bottom: 1rem;
-    }
-    #webcam-video { width: 100%; display: block; }
-    #webcam-video.hidden { display: none; }
-    .scanner-frame {
-      position: absolute; inset: 0; display: flex;
-      align-items: center; justify-content: center;
-    }
-    .scan-hint { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.6); font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
-    .scan-laser {
-      position: absolute; width: 80%; height: 2px;
-      background: linear-gradient(90deg, transparent, var(--accent-emerald), transparent);
-      top: 50%; left: 10%;
-      animation: laser-scan 2s ease-in-out infinite;
-    }
-    @keyframes laser-scan { 0%,100%{top:20%} 50%{top:80%} }
-    .drag-zone {
-      border: 2px dashed var(--border-card); border-radius: var(--radius-lg);
-      padding: 2rem; text-align: center; cursor: pointer; transition: all 0.2s;
-      margin-bottom: 1rem;
-    }
-    .drag-zone:hover, .drag-zone.dragover { border-color: var(--accent-primary); background: rgba(99,102,241,0.05); }
-    .drag-zone i { font-size: 2rem; color: var(--text-muted); margin-bottom: 0.75rem; display: block; }
-    .drag-zone p { color: var(--text-muted); font-size: 0.85rem; }
-    .drag-zone p strong { color: var(--accent-primary); }
-    #id-file-input { display: none; }
 
-    .decoded-box {
-      background: rgba(16,185,129,0.08); border: 1.5px solid rgba(16,185,129,0.3);
-      border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem;
-    }
-    .decoded-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); margin-bottom: 4px; }
-    .decoded-no { font-family: monospace; font-size: 1.6rem; font-weight: 900; color: var(--accent-emerald); letter-spacing: 3px; }
-    .decoded-sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
-    .decoded-chips { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
-    .d-chip {
-      padding: 0.25rem 0.65rem; border-radius: 8px; font-size: 0.75rem; font-weight: 700;
-    }
-    .d-chip.year { background: rgba(99,102,241,0.15); color: var(--accent-primary); border: 1px solid rgba(99,102,241,0.3); }
-    .d-chip.no   { background: rgba(16,185,129,0.12); color: var(--accent-emerald); border: 1px solid rgba(16,185,129,0.3); }
-    .d-chip.branch { background: rgba(245,158,11,0.12); color: var(--accent-amber); border: 1px solid rgba(245,158,11,0.3); }
-
-    .scanner-controls { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem; }
-    .scan-status { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.75rem; padding: 0.6rem 0.9rem; background: rgba(0,0,0,0.2); border-radius: var(--radius-md); }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-sub); flex-shrink: 0; }
-    .status-dot.scanning { background: var(--accent-amber); animation: pulse-dot 1s infinite; }
-    .status-dot.success { background: var(--accent-emerald); }
-    .status-dot.error { background: var(--accent-rose); }
-    @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }
-    #scan-status-text { font-size: 0.8rem; color: var(--text-muted); }
 
     /* Error msg */
     .error-msg { color: var(--accent-rose); font-size: 0.8rem; font-weight: 700; margin-top: 6px; display: none; }
@@ -930,13 +877,10 @@
       <h1 style="font-family:'Outfit',sans-serif;font-size:1.7rem;font-weight:800;color:#fff;margin-bottom:0.6rem;">
         Exclusive Commute Community for Students &amp; Faculty
       </h1>
-      <p>Verify your identity using your college ID card barcode scan or official register number (e.g. 25/033/CS or TLY25CS033) to offer rides, join pools, and split fuel costs effortlessly.</p>
+      <p>Verify your identity using your official college register number (e.g. 25/033/CS or TLY25CS033) to offer rides, join pools, and split fuel costs effortlessly.</p>
       <div class="banner-actions">
-        <button class="btn btn-primary btn-lg shine-effect" id="open-scan-btn">
-          <i class="fa-solid fa-camera"></i> Scan College ID Card
-        </button>
-        <button class="btn btn-secondary btn-lg" id="open-manual-btn">
-          <i class="fa-solid fa-id-card"></i> Enter Register Details
+        <button class="btn btn-primary btn-lg shine-effect" id="open-manual-btn">
+          <i class="fa-solid fa-id-card"></i> Verify with Register Details
         </button>
       </div>
     </div>
@@ -948,7 +892,7 @@
           <div class="line l2"></div>
           <div class="line l3"></div>
         </div>
-        <div class="card-stamp"><i class="fa-solid fa-barcode"></i> VERIFIED</div>
+        <div class="card-stamp"><i class="fa-solid fa-circle-check"></i> VERIFIED</div>
       </div>
     </div>
   </section>
@@ -1122,66 +1066,7 @@
 
 </main>
 
-<!-- =========================================================
-  MODAL: Barcode Scanner
-========================================================= -->
-<div class="modal-backdrop" id="scan-modal">
-  <div class="modal-card modal-lg">
-    <div class="modal-header">
-      <h3><i class="fa-solid fa-barcode"></i> Optical College ID Barcode Scanner</h3>
-      <button class="close-modal-btn" data-close="scan-modal">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div class="scanner-viewport" id="scanner-viewport">
-        <video id="webcam-video" autoplay playsinline class="hidden"></video>
-        <div class="scanner-frame">
-          <div class="scan-laser"></div>
-          <p class="scan-hint"><i class="fa-solid fa-barcode"></i> Point camera at ID Card Barcode</p>
-        </div>
-      </div>
 
-      <div class="drag-zone" id="drag-zone">
-        <i class="fa-solid fa-cloud-arrow-up"></i>
-        <p>Drag &amp; Drop ID Card Photo or <strong>Browse File</strong></p>
-        <input type="file" id="id-file-input" accept="image/*">
-      </div>
-
-      <div class="decoded-box" id="decoded-box">
-        <div class="decoded-label"><i class="fa-solid fa-barcode" style="color:var(--accent-emerald)"></i> Scanned Admission Number:</div>
-        <div class="decoded-no" id="decoded-no">—</div>
-        <div class="decoded-sub" id="decoded-sub">Upload or capture your college ID card to decode barcode</div>
-        <div class="decoded-chips" id="decoded-chips" style="display:none"></div>
-      </div>
-
-      <div class="form-grid" style="margin-bottom:1rem;">
-        <div class="form-group">
-          <label><i class="fa-solid fa-pen-to-square"></i> Confirm / Correct Admission No:</label>
-          <input type="text" id="scan-admission-input" placeholder="Auto-filled (e.g. 25/033/CS)" style="font-family:monospace;font-weight:800;color:var(--accent-emerald);text-transform:uppercase;">
-          <small>Format: YY/NNN/BRANCH — e.g. 25/033/CS or 25/033/CSE</small>
-        </div>
-        <div class="form-group">
-          <label><i class="fa-solid fa-user"></i> Your Full Name:</label>
-          <input type="text" id="scan-name-input" placeholder="e.g. Rahul Sharma">
-        </div>
-      </div>
-      <span class="error-msg" id="scan-error"></span>
-
-      <div class="scanner-controls">
-        <button class="btn btn-secondary" id="toggle-camera-btn">
-          <i class="fa-solid fa-video"></i> Start Live Webcam
-        </button>
-        <button class="btn btn-primary shine-effect" id="scan-verify-btn">
-          <i class="fa-solid fa-shield-check"></i> Scan &amp; Complete Verification
-        </button>
-      </div>
-
-      <div class="scan-status">
-        <div class="status-dot" id="scan-dot"></div>
-        <span id="scan-status-text">Upload or capture your college ID card photo</span>
-      </div>
-    </div>
-  </div>
-</div>
 
 <!-- =========================================================
   MODAL: Manual Verification
@@ -1214,7 +1099,7 @@
         <div class="form-group" style="margin-bottom:0.25rem;">
           <label for="verify-register">Register / Admission Number</label>
           <input type="text" id="verify-register" placeholder="e.g. 25/033/CS or TLY25CS033" style="text-transform:uppercase;" required>
-          <small>Format: YY/NNN/BRANCH (barcode) or TLY25CS033 (register)</small>
+          <small>Format: e.g. 25/033/CS or TLY25CS033</small>
         </div>
         <span class="error-msg" id="manual-error" style="display:none; margin-bottom:0.75rem;"></span>
         <div class="form-group" style="margin-bottom:1rem;">

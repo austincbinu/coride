@@ -8,7 +8,6 @@
 // â-€â-€ API base â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€â-€
 const API = {
   verify:       '/api/auth/verify',
-  barcode:      '/api/auth/verify-barcode',
   validate:     '/api/auth/validate-admission',
   rides:        '/api/rides',
   requests:     '/api/requests',
@@ -97,7 +96,6 @@ document.querySelectorAll('.modal-backdrop').forEach(modal => {
 });
 
 // Open verify modals from banner
-document.getElementById('open-scan-btn')?.addEventListener('click', () => openModal('scan-modal'));
 document.getElementById('open-manual-btn')?.addEventListener('click', () => openModal('manual-modal'));
 document.getElementById('open-post-need-btn')?.addEventListener('click', () => {
   if (!currentUser) { showToast('Please verify your identity first!', 'warning'); openModal('manual-modal'); return; }
@@ -1166,161 +1164,6 @@ document.getElementById('manual-verify-form')?.addEventListener('submit', async 
   } else {
     errEl.textContent = data?.error || 'Verification failed.';
     errEl.style.display = 'block';
-  }
-});
-
-/* =============================================================
-   BARCODE SCANNER
-============================================================= */
-let cameraRunning = false;
-let quaggaStarted = false;
-
-function setScanStatus(text, type = '') {
-  const dot  = document.getElementById('scan-dot');
-  const span = document.getElementById('scan-status-text');
-  if (dot)  { dot.className = 'status-dot'; if (type) dot.classList.add(type); }
-  if (span) span.textContent = text;
-}
-
-function fillDecodedResult(admissionNo) {
-  document.getElementById('scan-admission-input').value = admissionNo;
-  document.getElementById('decoded-no').textContent = admissionNo;
-
-  const match = admissionNo.match(/^(\d{2})\/(\d{3})\/([A-Za-z]{2,3})$/);
-  if (match) {
-    const chipsEl = document.getElementById('decoded-chips');
-    chipsEl.style.display = 'flex';
-    chipsEl.innerHTML = `
-      <span class="d-chip year">Year: 20${match[1]}</span>
-      <span class="d-chip no">No: ${match[2]}</span>
-      <span class="d-chip branch">Branch: ${match[3].toUpperCase()}</span>`;
-    document.getElementById('decoded-sub').textContent = 'Barcode decoded successfully!';
-  }
-}
-
-// Toggle camera
-document.getElementById('toggle-camera-btn')?.addEventListener('click', async () => {
-  const btn   = document.getElementById('toggle-camera-btn');
-  const video = document.getElementById('webcam-video');
-  const port  = document.getElementById('scanner-viewport');
-
-  if (!cameraRunning) {
-    setScanStatus('Starting camera...', 'scanning');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      video.srcObject = stream;
-      video.classList.remove('hidden');
-      cameraRunning = true;
-      btn.innerHTML = '<i class="fa-solid fa-video-slash"></i> Stop Camera';
-
-      // Start Quagga live scanning if available
-      if (window.Quagga) {
-        Quagga.init({
-          inputStream: { type: 'LiveStream', target: port, constraints: { facingMode: 'environment' } },
-          decoder:     { readers: ['code_128_reader', 'code_39_reader', 'ean_reader'] },
-        }, err => {
-          if (!err) { Quagga.start(); quaggaStarted = true; }
-        });
-        Quagga.onDetected(result => {
-          const code = result.codeResult.code;
-          fillDecodedResult(code);
-          setScanStatus('Barcode detected! ✅', 'success');
-          showToast('Barcode scanned: ' + code, 'success');
-          stopCamera();
-        });
-      }
-      setScanStatus('Camera live – point at ID barcode', 'scanning');
-    } catch (err) {
-      setScanStatus('Camera access denied', 'error');
-      showToast('Camera permission denied. Use file upload instead.', 'warning');
-    }
-  } else {
-    stopCamera();
-  }
-});
-
-function stopCamera() {
-  const video = document.getElementById('webcam-video');
-  const btn   = document.getElementById('toggle-camera-btn');
-  if (video?.srcObject) { video.srcObject.getTracks().forEach(t => t.stop()); video.srcObject = null; }
-  video?.classList.add('hidden');
-  if (quaggaStarted) { try { Quagga.stop(); } catch(e){} quaggaStarted = false; }
-  cameraRunning = false;
-  if (btn) btn.innerHTML = '<i class="fa-solid fa-video"></i> Start Live Webcam';
-  setScanStatus('Camera stopped');
-}
-
-// Stop camera when modal closes
-document.getElementById('scan-modal')?.addEventListener('click', e => {
-  if (e.target.id === 'scan-modal') stopCamera();
-});
-document.querySelector('[data-close="scan-modal"]')?.addEventListener('click', stopCamera);
-
-// Drag & drop / file upload (simulate decode for image upload)
-const dragZone = document.getElementById('drag-zone');
-const fileInput = document.getElementById('id-file-input');
-
-dragZone?.addEventListener('click', () => fileInput?.click());
-dragZone?.addEventListener('dragover', e => { e.preventDefault(); dragZone.classList.add('dragover'); });
-dragZone?.addEventListener('dragleave', () => dragZone.classList.remove('dragover'));
-dragZone?.addEventListener('drop', e => { e.preventDefault(); dragZone.classList.remove('dragover'); handleImageFile(e.dataTransfer.files[0]); });
-fileInput?.addEventListener('change', e => handleImageFile(e.target.files[0]));
-
-function handleImageFile(file) {
-  if (!file || !file.type.startsWith('image/')) { showToast('Please upload an image file.', 'error'); return; }
-  setScanStatus('Scanning barcode from image...', 'scanning');
-
-  if (window.Quagga) {
-    Quagga.decodeSingle({
-      src: URL.createObjectURL(file),
-      numOfWorkers: 0,
-      decoder: { readers: ['code_128_reader', 'code_39_reader', 'ean_reader'] },
-    }, result => {
-      if (result?.codeResult) {
-        fillDecodedResult(result.codeResult.code);
-        setScanStatus('Barcode decoded from image! ✅', 'success');
-        showToast('Barcode: ' + result.codeResult.code, 'success');
-      } else {
-        setScanStatus('Could not decode barcode. Enter manually.', 'error');
-        showToast('No barcode found in image. Please enter manually.', 'warning');
-      }
-    });
-  } else {
-    setScanStatus('Barcode library loading... Please enter manually.', 'error');
-    showToast('Enter your admission number manually below.', 'info');
-  }
-}
-
-// Scan verify button
-document.getElementById('scan-verify-btn')?.addEventListener('click', async () => {
-  const admNo    = document.getElementById('scan-admission-input')?.value?.trim();
-  const name     = document.getElementById('scan-name-input')?.value?.trim();
-  const errEl    = document.getElementById('scan-error');
-  const btn      = document.getElementById('scan-verify-btn');
-
-  if (!name)   { errEl.textContent = 'Please enter your full name.'; errEl.style.display = 'block'; return; }
-  if (!admNo)  { errEl.textContent = 'Please enter or scan your admission number.'; errEl.style.display = 'block'; return; }
-
-  errEl.style.display = 'none';
-  btn.innerHTML = '<div class="spinner"></div> Verifying...';
-  btn.disabled = true;
-
-  const { ok, data } = await apiRequest(API.barcode, 'POST', { name, barcodeData: admNo, role: 'Student' });
-
-  btn.innerHTML = '<i class="fa-solid fa-shield-check"></i> Scan &amp; Complete Verification';
-  btn.disabled = false;
-
-  if (ok && data.success) {
-    currentUser = data.user;
-    sessionStorage.setItem('corideUser', JSON.stringify(currentUser));
-    closeModal('scan-modal');
-    stopCamera();
-    renderUserMenu();
-    showToast(`Welcome, ${currentUser.name}! Identity verified ✅`, 'success');
-  } else {
-    errEl.textContent = data?.error || 'Verification failed.';
-    errEl.style.display = 'block';
-    setScanStatus('Verification failed', 'error');
   }
 });
 
