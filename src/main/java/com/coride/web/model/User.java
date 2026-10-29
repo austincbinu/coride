@@ -11,17 +11,18 @@ public class User {
     private Long id;
 
     private String name;
-    private String admissionNo;
+    private String admissionNo; // also used as username
     private String registerNumber;
     private String branchCode;
     private String department;
     private String role;
     private boolean isVerified;
     private String verificationMethod;
+    private String password; // BCrypt hashed password
 
     public User() {}
 
-    public User(String name, String admissionNo, String registerNumber, String branchCode, String department, String role, boolean isVerified, String verificationMethod) {
+    public User(String name, String admissionNo, String registerNumber, String branchCode, String department, String role, boolean isVerified, String verificationMethod, String password) {
         this.name = name;
         this.admissionNo = admissionNo;
         this.registerNumber = registerNumber;
@@ -30,8 +31,10 @@ public class User {
         this.role = role;
         this.isVerified = isVerified;
         this.verificationMethod = verificationMethod;
+        this.password = password;
     }
 
+    // Getters and setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -58,4 +61,7 @@ public class User {
 
     public String getVerificationMethod() { return verificationMethod; }
     public void setVerificationMethod(String verificationMethod) { this.verificationMethod = verificationMethod; }
+
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
 }
