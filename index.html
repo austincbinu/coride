@@ -1,0 +1,499 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CoRide - Student & Faculty Carpool Network</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Leaflet Maps CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="dark-theme">
+  <!-- Background Glow & Animated Gradient Mesh -->
+  <div class="bg-mesh">
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+    <div class="glow-orb orb-3"></div>
+  </div>
+
+  <!-- Header Navigation -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="brand">
+        <div class="brand-icon">
+          <i class="fa-solid fa-car-side"></i>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">co<span class="highlight">Ride</span></span>
+          <span class="brand-tag">Verified Peer Ride Share</span>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="nav-links">
+        <button class="nav-btn active" data-tab="rides-tab">
+          <i class="fa-solid fa-compass"></i>
+          <span>Available Rides</span>
+        </button>
+        <button class="nav-btn" data-tab="requests-tab">
+          <i class="fa-solid fa-hand-holding-hand"></i>
+          <span>Rider Needs</span>
+          <span class="badge-count" id="requests-count-badge">0</span>
+        </button>
+        <button class="nav-btn highlight-btn" data-tab="offer-tab">
+          <i class="fa-solid fa-plus-circle"></i>
+          <span>Offer a Ride</span>
+        </button>
+        <button class="nav-btn" data-tab="my-trips-tab">
+          <i class="fa-solid fa-route"></i>
+          <span>My Activity</span>
+        </button>
+      </nav>
+
+      <!-- User Auth & Status Bar -->
+      <div class="user-menu" id="user-menu-container">
+        <!-- Will be populated dynamically by JS -->
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Wrapper -->
+  <main class="main-content">
+    
+    <!-- Hero / Verification Banner (Shown if unverified) -->
+    <section class="verification-banner" id="verification-banner">
+      <div class="banner-content">
+        <div class="banner-badge"><i class="fa-solid fa-shield-halved"></i> Campus Security Enabled</div>
+        <h2>Exclusive Commute Community for Students & Faculty</h2>
+        <p>coRide is an exclusive campus community. Create an account with your register number to offer rides, join pools, and split fuel costs effortlessly.</p>
+        <div class="banner-actions">
+          <button class="btn btn-primary btn-lg shine-effect" id="open-register-btn">
+            <i class="fa-solid fa-user-plus"></i> Create Account
+          </button>
+          <button class="btn btn-secondary btn-lg" id="open-login-btn">
+            <i class="fa-solid fa-right-to-bracket"></i> Login
+          </button>
+        </div>
+      </div>
+      <div class="banner-graphic">
+        <div class="id-card-preview-animated">
+          <div class="card-chip"></div>
+          <div class="card-avatar"><i class="fa-solid fa-graduation-cap"></i></div>
+          <div class="card-lines">
+            <div class="line l1"></div>
+            <div class="line l2"></div>
+            <div class="line l3"></div>
+          </div>
+          <div class="card-stamp"><i class="fa-solid fa-barcode"></i> BARCODE VERIFIED</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 1: AVAILABLE RIDES (DRIVERS OFFERING SEATS) -->
+    <section class="tab-pane active" id="rides-tab">
+      <div class="section-header">
+        <div class="header-titles">
+          <h2>Find a Campus Ride</h2>
+          <p>Verified car & bike owners offering vacant seats from or to campus.</p>
+        </div>
+
+        <!-- Search & Filter Bar -->
+        <div class="filter-bar">
+          <div class="search-input-group">
+            <i class="fa-solid fa-location-dot"></i>
+            <input type="text" id="search-destination" placeholder="Where are you heading? (e.g. Sector 62, Metro, Home)">
+          </div>
+          
+          <div class="select-group">
+            <i class="fa-solid fa-car"></i>
+            <select id="filter-vehicle">
+              <option value="all">All Vehicles</option>
+              <option value="Car">Cars Only</option>
+              <option value="Bike">Bikes/Scooters Only</option>
+            </select>
+          </div>
+
+          <div class="select-group">
+            <i class="fa-solid fa-user-graduate"></i>
+            <select id="filter-role">
+              <option value="all">All Commuters</option>
+              <option value="Student">Students Only</option>
+              <option value="Faculty">Faculty Only</option>
+            </select>
+          </div>
+
+          <button class="btn btn-secondary btn-sm" id="reset-junk-data-btn" title="Purge legacy/junk posts & reload clean verified board" style="border-color:var(--accent-amber); color:var(--accent-amber);">
+            <i class="fa-solid fa-broom"></i> Reset & Clear Junk
+          </button>
+        </div>
+      </div>
+
+      <!-- Rides Container & Grid -->
+      <div class="rides-grid" id="rides-container">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- TAB 2: RIDER NEEDS (PASSENGERS LOOKING FOR A RIDE) -->
+    <section class="tab-pane" id="requests-tab">
+      <div class="section-header">
+        <div class="header-titles">
+          <h2>Rider Needs & Travel Requests</h2>
+          <p>Students and faculty looking for a ride. Drivers can view requests and invite them to their car/bike!</p>
+        </div>
+        <button class="btn btn-primary pulse-btn" id="open-post-need-btn">
+          <i class="fa-solid fa-bullhorn"></i> Post Your Travel Need
+        </button>
+      </div>
+
+      <div class="requests-grid" id="requests-container">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- TAB 3: OFFER A RIDE (DRIVERS) -->
+    <section class="tab-pane" id="offer-tab">
+      <div class="form-card-container">
+        <div class="form-header">
+          <div class="icon-circle"><i class="fa-solid fa-car-tunnel"></i></div>
+          <div>
+            <h2>Offer a Ride & Share Fuel Cost</h2>
+            <p>Going home or heading to campus? Fill vacant seats and split trip expenses.</p>
+          </div>
+        </div>
+
+        <form id="offer-ride-form" class="animated-form">
+          <div class="form-grid">
+
+            <div class="form-group full-width">
+              <label><i class="fa-solid fa-car-side"></i> Vehicle Type & Model Details</label>
+              <div class="vehicle-selector">
+                <label class="radio-card">
+                  <input type="radio" name="vehicleType" value="Car" checked>
+                  <div class="radio-content">
+                    <i class="fa-solid fa-car"></i>
+                    <span>Car</span>
+                  </div>
+                </label>
+                <label class="radio-card">
+                  <input type="radio" name="vehicleType" value="Bike">
+                  <div class="radio-content">
+                    <i class="fa-solid fa-motorcycle"></i>
+                    <span>Bike / Scooter</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="offer-vehicle-model">Vehicle Make & Model</label>
+              <input type="text" id="offer-vehicle-model" placeholder="e.g. Honda City, Royal Enfield 350, Swift" required>
+            </div>
+
+            <div class="form-group">
+              <label for="offer-vehicle-plate">Vehicle License Plate Number</label>
+              <input type="text" id="offer-vehicle-plate" placeholder="e.g. DL 01 AB 1234" required>
+            </div>
+
+            <div class="form-group">
+              <label for="offer-origin">Pickup Location (Campus/Point)</label>
+              <input type="text" id="offer-origin" placeholder="e.g. Main Gate, Boys Hostel 3, Academic Block" required>
+            </div>
+
+            <div class="form-group">
+              <label for="offer-destination">Destination / Drop-off Point</label>
+              <input type="text" id="offer-destination" placeholder="e.g. City Mall, Metro Station, Sector 18" required>
+            </div>
+
+            <div class="form-group">
+              <label for="offer-time">Departure Time</label>
+              <input type="time" id="offer-time" required>
+            </div>
+
+            <div class="form-group">
+              <label for="offer-seats">Vacant Seats Available</label>
+              <input type="number" id="offer-seats" min="1" max="6" value="3" required>
+            </div>
+
+            <div class="form-group">
+              <label for="offer-fuel-cost">Estimated Total Trip Fuel Cost (â‚¹)</label>
+              <input type="number" id="offer-fuel-cost" min="0" step="10" value="300" placeholder="e.g. 300" required>
+            </div>
+
+            <div class="form-group">
+              <label for="offer-phone">Mobile / Contact Number</label>
+              <input type="tel" id="offer-phone" placeholder="e.g. +91 9876543210" required>
+            </div>
+
+            <div class="form-group full-width">
+              <label for="offer-notes">Additional Trip Info / Rules</label>
+              <textarea id="offer-notes" rows="2" placeholder="e.g. AC available, leaving strictly at 5:15 PM, no heavy luggage"></textarea>
+            </div>
+
+          </div>
+
+          <!-- Live Dynamic Cost Breakdown Card -->
+          <div class="cost-split-preview-card" id="cost-split-preview">
+            <div class="preview-title"><i class="fa-solid fa-calculator"></i> Automatic Cost Split Calculation</div>
+            <div class="preview-row">
+              <span>Total Estimated Fuel Cost:</span>
+              <strong id="calc-total-cost">â‚¹300</strong>
+            </div>
+            <div class="preview-row">
+              <span>Assuming Full Seats (<span id="calc-seats-count">3 passengers + Driver</span>):</span>
+              <strong class="highlight-price" id="calc-per-person">â‚¹75 / person</strong>
+            </div>
+            <small><i class="fa-solid fa-info-circle"></i> Cost is automatically divided equally among all commuters in the ride.</small>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg block-btn shine-effect">
+              <i class="fa-solid fa-paper-plane"></i> Publish Ride Offer
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- TAB 4: MY ACTIVITY (MY OFFERS & BOOKINGS) -->
+    <section class="tab-pane" id="my-trips-tab">
+      <div class="section-header">
+        <div class="header-titles">
+          <h2>My Commute Dashboard</h2>
+          <p>Track your posted ride offers, ride bookings, and incoming rider invitations.</p>
+        </div>
+      </div>
+
+      <div class="activity-sections">
+        <div class="activity-block">
+          <h3><i class="fa-solid fa-car"></i> My Posted Ride Offers</h3>
+          <div id="my-offers-container" class="rides-grid"></div>
+        </div>
+
+        <div class="activity-block">
+          <h3><i class="fa-solid fa-ticket"></i> My Joined / Booked Rides</h3>
+          <div id="my-bookings-container" class="rides-grid"></div>
+        </div>
+
+        <div class="activity-block">
+          <h3><i class="fa-solid fa-bullhorn"></i> My Posted Rider Needs</h3>
+          <div id="my-requests-container" class="requests-grid"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL 1: LOGIN -->
+  <div class="modal-backdrop" id="login-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-right-to-bracket"></i> Login to coRide</h3>
+        <button class="close-modal-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="login-form">
+          <div class="form-group">
+            <label for="login-username"><i class="fa-solid fa-user" style="color:var(--accent-primary);"></i> Username</label>
+            <input type="text" id="login-username" placeholder="Enter your username" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label for="login-password"><i class="fa-solid fa-lock" style="color:var(--accent-primary);"></i> Password</label>
+            <div style="position:relative;">
+              <input type="password" id="login-password" placeholder="Enter your password" required autocomplete="current-password" style="padding-right:2.8rem;">
+              <button type="button" onclick="const i=document.getElementById('login-password');i.type=i.type==='password'?'text':'password';this.querySelector('i').className='fa-solid '+(i.type==='password'?'fa-eye':'fa-eye-slash');" style="position:absolute;right:0.75rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+          </div>
+          <span id="login-error" style="color:var(--accent-rose);font-size:0.82rem;font-weight:700;background:rgba(244,63,94,0.1);border:1px solid rgba(244,63,94,0.3);border-radius:8px;padding:0.5rem 0.75rem;display:none;margin-bottom:0.5rem;"></span>
+          <button type="submit" class="btn btn-primary block-btn shine-effect" style="margin-top:0.75rem;">
+            <i class="fa-solid fa-right-to-bracket"></i> Login
+          </button>
+          <p style="text-align:center;margin-top:1.1rem;color:var(--text-muted);font-size:0.88rem;">
+            Don't have an account? <a id="switch-to-register" href="#" style="color:var(--accent-emerald);font-weight:700;text-decoration:none;">Create one here</a>
+          </p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: REGISTER -->
+  <div class="modal-backdrop" id="register-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-user-plus"></i> Create coRide Account</h3>
+        <button class="close-modal-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="register-form">
+          <div class="form-group">
+            <label>I am a:</label>
+            <div class="vehicle-selector">
+              <label class="radio-card">
+                <input type="radio" name="reg-role" value="Student" checked id="reg-role-student">
+                <div class="radio-content">
+                  <i class="fa-solid fa-graduation-cap"></i>
+                  <span>Student</span>
+                </div>
+              </label>
+              <label class="radio-card">
+                <input type="radio" name="reg-role" value="Faculty" id="reg-role-faculty">
+                <div class="radio-content">
+                  <i class="fa-solid fa-chalkboard-user"></i>
+                  <span>Faculty</span>
+                </div>
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="reg-name"><i class="fa-solid fa-id-badge" style="color:var(--accent-primary);"></i> Full Name</label>
+            <input type="text" id="reg-name" placeholder="e.g. Rahul Sharma" required>
+          </div>
+          <div class="form-group">
+            <label for="reg-username"><i class="fa-solid fa-at" style="color:var(--accent-primary);"></i> Username</label>
+            <input type="text" id="reg-username" placeholder="Choose a unique username" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label for="reg-register-no"><i class="fa-solid fa-id-card" style="color:var(--accent-primary);"></i> Register Number</label>
+            <input type="text" id="reg-register-no" placeholder="e.g. TLY25CS123" required style="text-transform:uppercase;">
+            <small style="color:var(--text-muted);font-size:0.75rem;">Format: TLY + 2-digit Year + Branch (CS/ME/CE/EC/EE/ES/IT) + 3-digit Roll No</small>
+            <span id="reg-dept-display" style="display:block;margin-top:0.3rem;color:var(--accent-emerald);font-size:0.82rem;font-weight:700;"></span>
+          </div>
+          <div class="form-group">
+            <label for="reg-password"><i class="fa-solid fa-lock" style="color:var(--accent-primary);"></i> Password</label>
+            <div style="position:relative;">
+              <input type="password" id="reg-password" placeholder="At least 6 characters" required autocomplete="new-password" style="padding-right:2.8rem;">
+              <button type="button" onclick="const i=document.getElementById('reg-password');i.type=i.type==='password'?'text':'password';this.querySelector('i').className='fa-solid '+(i.type==='password'?'fa-eye':'fa-eye-slash');" style="position:absolute;right:0.75rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="reg-confirm-password"><i class="fa-solid fa-lock-open" style="color:var(--accent-primary);"></i> Confirm Password</label>
+            <input type="password" id="reg-confirm-password" placeholder="Re-enter your password" required autocomplete="new-password">
+          </div>
+          <span id="register-error" style="color:var(--accent-rose);font-size:0.82rem;font-weight:700;background:rgba(244,63,94,0.1);border:1px solid rgba(244,63,94,0.3);border-radius:8px;padding:0.5rem 0.75rem;display:none;margin-bottom:0.5rem;"></span>
+          <button type="submit" class="btn btn-primary block-btn shine-effect" style="margin-top:0.75rem;">
+            <i class="fa-solid fa-user-plus"></i> Create Account &amp; Join coRide
+          </button>
+          <p style="text-align:center;margin-top:1.1rem;color:var(--text-muted);font-size:0.88rem;">
+            Already have an account? <a id="switch-to-login" href="#" style="color:var(--accent-primary);font-weight:700;text-decoration:none;">Login here</a>
+          </p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- MODAL 3: POST RIDER NEED (PASSENGER) -->
+  <div class="modal-backdrop" id="post-need-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-bullhorn"></i> Post Travel Request</h3>
+        <button class="close-modal-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="post-need-form">
+          <div class="form-group">
+            <label for="need-destination">Destination / Where are you going?</label>
+            <input type="text" id="need-destination" placeholder="e.g. Anand Vihar ISBT, Sector 62 Noida" required>
+          </div>
+
+          <div class="form-group">
+            <label for="need-origin">Pickup Location / Hostel / Gate</label>
+            <input type="text" id="need-origin" placeholder="e.g. Gate No. 2, Campus Library" required>
+          </div>
+
+          <div class="form-group">
+            <label for="need-time">Preferred Departure Time</label>
+            <input type="time" id="need-time" required>
+          </div>
+
+          <div class="form-group">
+            <label for="need-seats">Number of Seats Needed</label>
+            <input type="number" id="need-seats" min="1" max="4" value="1" required>
+          </div>
+
+          <div class="form-group">
+            <label for="need-phone">Your Mobile Phone Number</label>
+            <input type="tel" id="need-phone" placeholder="e.g. +91 9876543210" required>
+          </div>
+
+          <div class="form-group">
+            <label for="need-notes">Note to Drivers</label>
+            <textarea id="need-notes" rows="2" placeholder="e.g. Have one small laptop bag, ready to split fuel cost!"></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary block-btn shine-effect">
+            <i class="fa-solid fa-paper-plane"></i> Broadcast Request to Drivers
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 4: RIDE DETAILS & BOOKING MODAL -->
+  <div class="modal-backdrop" id="ride-details-modal">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <h3 id="modal-ride-title"><i class="fa-solid fa-route"></i> Ride Details</h3>
+        <button class="close-modal-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="ride-detail-layout">
+          <!-- Left Column: Details & Driver Info -->
+          <div class="detail-col-info" id="ride-modal-info">
+            <!-- Populated dynamically -->
+          </div>
+
+          <!-- Right Column: Interactive Route Map & Booking Form -->
+          <div class="detail-col-map">
+            <div id="modal-map" class="route-map-container"></div>
+            
+            <div class="booking-box" id="booking-box-container">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 5: DRIVER INVITE RIDER MODAL -->
+  <div class="modal-backdrop" id="invite-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-envelope-open-text"></i> Invite Rider to Your Pool</h3>
+        <button class="close-modal-btn">&times;</button>
+      </div>
+      <div class="modal-body" id="invite-modal-body">
+        <!-- Populated dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Application Modules -->
+  <script src="js/mockData.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/rides.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

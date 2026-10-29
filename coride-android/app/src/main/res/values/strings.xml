@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">coRide</string>
+    <string name="title_rides">Rides</string>
+    <string name="title_requests">Requests</string>
+    <string name="title_offer_ride">Offer Ride</string>
+    <string name="title_profile">Profile</string>
+</resources>
